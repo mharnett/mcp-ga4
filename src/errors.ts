@@ -1,0 +1,43 @@
+export class Ga4AuthError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "Ga4AuthError";
+  }
+}
+
+export class Ga4RateLimitError extends Error {
+  constructor(public readonly retryAfterMs: number, cause?: unknown) {
+    super(`Rate limited, retry after ${retryAfterMs}ms`);
+    this.name = "Ga4RateLimitError";
+    this.cause = cause;
+  }
+}
+
+export class Ga4ServiceError extends Error {
+  constructor(message: string, public readonly cause?: unknown) {
+    super(message);
+    this.name = "Ga4ServiceError";
+  }
+}
+
+export function classifyError(error: any): Error {
+  const message = error?.message || String(error);
+  const code = error?.code || error?.status;
+
+  if (code === 401 || code === 403 || code === 7 || code === 16 ||
+      message.includes("PERMISSION_DENIED") || message.includes("UNAUTHENTICATED") ||
+      message.includes("invalid_grant")) {
+    return new Ga4AuthError(`Auth failed: ${message}. Check credentials.`, error);
+  }
+
+  if (code === 429 || code === 8 || message.includes("RESOURCE_EXHAUSTED") || message.includes("rateLimitExceeded")) {
+    return new Ga4RateLimitError(60_000, error);
+  }
+
+  if (code >= 500 || code === 13 || code === 14 ||
+      message.includes("INTERNAL") || message.includes("UNAVAILABLE")) {
+    return new Ga4ServiceError(`GA4 API server error: ${message}`, error);
+  }
+
+  return error;
+}

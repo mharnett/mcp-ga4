@@ -1,0 +1,10 @@
+{
+  "credentials_file": "/path/to/credentials.json",
+  "clients": {
+    "my-site": {
+      "name": "My Website",
+      "folder": "/path/to/project",
+      "property_id": "123456789"
+    }
+  }
+}
