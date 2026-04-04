@@ -146,6 +146,7 @@ class Ga4Manager {
       if (this.config.credentials_file) {
         opts.keyFile = this.config.credentials_file;
       }
+      opts.scopes = ["https://www.googleapis.com/auth/analytics.readonly"];
       this.dataClient = new BetaAnalyticsDataClient(opts);
     }
     return this.dataClient;
@@ -157,6 +158,10 @@ class Ga4Manager {
       if (this.config.credentials_file) {
         opts.keyFile = this.config.credentials_file;
       }
+      opts.scopes = [
+        "https://www.googleapis.com/auth/analytics.readonly",
+        "https://www.googleapis.com/auth/analytics.edit",
+      ];
       this.adminClient = new AnalyticsAdminServiceClient(opts);
     }
     return this.adminClient;
