@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mharnett/ga4",
+  "description": "Google Analytics 4 MCP: reports, realtime data, custom dimensions, data streams.",
+  "repository": {
+    "url": "https://github.com/mharnett/mcp-ga4",
+    "source": "github"
+  },
+  "version": "2.0.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "mcp-ga4",
+      "version": "2.0.0",
+      "transport": { "type": "stdio" },
+      "environmentVariables": [
+        { "name": "GA4_PROPERTY_ID", "description": "GA4 property ID (numeric)", "isRequired": true, "isSecret": false },
+        { "name": "GOOGLE_APPLICATION_CREDENTIALS", "description": "Path to service account JSON credentials file", "isRequired": true, "isSecret": false }
+      ]
+    }
+  ]
+}
