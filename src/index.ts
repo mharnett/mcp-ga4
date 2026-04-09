@@ -244,12 +244,21 @@ class Ga4Manager {
     const startDate = options.startDate || "7daysAgo";
     const endDate = options.endDate || "today";
 
+    // Future date validation (skip relative dates like "7daysAgo")
+    const today_ga4 = new Date().toISOString().slice(0, 10);
+    if (startDate && !startDate.includes("daysAgo") && !startDate.includes("yesterday") && !startDate.includes("today") && startDate > today_ga4) {
+      return { rows: [], row_count: 0, error: `start_date "${startDate}" is in the future. Reports only cover historical data.` };
+    }
+
+    // Cap limit at 10,000 for sanity (GA4 API max is 100,000)
+    const limit = Math.min(options.limit || 100, 10000);
+
     const request: any = {
       property: `properties/${propertyId}`,
       dimensions: dims,
       metrics: mets,
       dateRanges: [{ startDate, endDate }],
-      limit: options.limit || 100,
+      limit,
     };
 
     if (options.dimensionFilter && options.dimensionFilter.includes("==")) {

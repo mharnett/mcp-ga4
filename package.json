@@ -1,7 +1,7 @@
 {
   "name": "mcp-ga4",
   "mcpName": "io.github.mharnett/ga4",
-  "version": "2.0.11",
+  "version": "2.0.12",
   "description": "MCP server for Google Analytics 4 - query GA4 data with natural language via Claude.",
   "main": "dist/index.js",
   "bin": {
