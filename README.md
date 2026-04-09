@@ -27,6 +27,8 @@ npm run build
 
 ## Configuration
 
+**Security:** Never share your `.mcp.json` file or commit it to git -- it may contain API credentials. Add `.mcp.json` to your `.gitignore`.
+
 ### Mode 1: Single Property (env vars)
 
 Set environment variables to connect to a single GA4 property:
