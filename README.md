@@ -19,7 +19,7 @@ npm install mcp-ga4
 Or clone the repository:
 
 ```bash
-git clone https://github.com/drak-marketing/mcp-ga4.git
+git clone https://github.com/mharnett/mcp-ga4.git
 cd mcp-ga4
 npm install
 npm run build
@@ -34,13 +34,6 @@ Set environment variables to connect to a single GA4 property:
 ```bash
 GA4_PROPERTY_ID=123456789
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-```
-
-For OAuth credentials instead of a service account:
-
-```bash
-GA4_PROPERTY_ID=123456789
-GA4_CREDENTIALS_FILE=/path/to/oauth-credentials.json
 ```
 
 ### Mode 2: Multi-Client (config.json)
