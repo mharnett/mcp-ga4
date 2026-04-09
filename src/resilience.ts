@@ -83,7 +83,10 @@ const circuitBreakerPolicy = circuitBreaker(isTransient, { halfOpenAfter: 60_000
 const timeoutPolicy = timeout(30_000, TimeoutStrategy.Cooperative);
 const policy = wrap(timeoutPolicy, circuitBreakerPolicy, retryPolicy);
 
-export async function withResilience<T>(fn: () => Promise<T>, operationName: string): Promise<T> {
+export async function withResilience<T>(
+  fn: () => Promise<T>,
+  operationName: string
+): Promise<T> {
   try {
     logger.debug({ operation: operationName }, "Starting API call");
     const result = await policy.execute(() => fn());

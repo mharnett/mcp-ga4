@@ -92,6 +92,8 @@ Multi-client mode:
 }
 ```
 
+**Claude Desktop:** Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
+
 ## Common Query Patterns
 
 **Top pages:**
