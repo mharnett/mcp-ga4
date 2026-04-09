@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync, existsSync, appendFileSync, mkdirSync } from "fs";
-import { join, dirname } from "path";
+import { join, dirname, resolve, isAbsolute } from "path";
 import { homedir } from "os";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 import { AnalyticsAdminServiceClient } from "@google-analytics/admin";
@@ -31,6 +31,12 @@ try {
   console.error(`[build] SHA: ${buildInfo.sha} (${buildInfo.builtAt})`);
 } catch {
   console.error(`[build] ${__cliPkg.name}@${__cliPkg.version} (dev mode)`);
+}
+
+// Version safety: warn if running a deprecated or dangerously old version
+const __minimumSafeVersion = "2.0.1"; // minimum version with input sanitization
+if (__cliPkg.version < __minimumSafeVersion) {
+  console.error(`[WARNING] Running deprecated version ${__cliPkg.version}. Minimum safe version is ${__minimumSafeVersion}. Please upgrade.`);
 }
 
 // CLI flags
@@ -75,7 +81,9 @@ interface Config {
 function loadConfig(): Config {
   // Single-property mode via env vars
   const propertyId = envTrimmed("GA4_PROPERTY_ID");
-  const credsFile = envTrimmed("GOOGLE_APPLICATION_CREDENTIALS");
+  const rawCredsFile = envTrimmed("GOOGLE_APPLICATION_CREDENTIALS");
+  // Resolve relative credential paths to absolute (CWD is unpredictable in MCP hosts)
+  const credsFile = rawCredsFile && !isAbsolute(rawCredsFile) ? resolve(rawCredsFile) : rawCredsFile;
 
   if (propertyId) {
     return {

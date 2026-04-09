@@ -3,7 +3,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types.js";
 export const tools: Tool[] = [
   {
     name: "ga4_get_client_context",
-    description: "Get the current GA4 client context based on working directory. Call this first to confirm which GA4 property you're working with.",
+    description: "Get the current GA4 client context and health status based on working directory. Call this first to confirm which GA4 property you're working with.",
     inputSchema: {
       type: "object",
       properties: {
