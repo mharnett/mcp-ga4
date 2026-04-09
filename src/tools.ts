@@ -5,6 +5,7 @@ export const tools: Tool[] = [
     name: "ga4_get_client_context",
     description: "Get the current GA4 client context and health status based on working directory. Call this first to confirm which GA4 property you're working with.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         working_directory: { type: "string", description: "The current working directory" },
@@ -16,6 +17,7 @@ export const tools: Tool[] = [
     name: "ga4_run_report",
     description: 'Query GA4 historical report. Common patterns: top pages (dimensions="pagePath", metrics="screenPageViews"), traffic sources (dimensions="sessionSource,sessionMedium", metrics="sessions,totalUsers"), daily trend (dimensions="date", metrics="sessions").',
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         property_id: { type: "string", description: "GA4 property ID (numeric)" },
@@ -34,6 +36,7 @@ export const tools: Tool[] = [
     name: "ga4_realtime_report",
     description: "Query GA4 Realtime Report (last 30 minutes).",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         property_id: { type: "string", description: "GA4 property ID (numeric)" },
@@ -48,6 +51,7 @@ export const tools: Tool[] = [
     name: "ga4_list_custom_dimensions",
     description: "List all registered custom dimensions for a GA4 property.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         property_id: { type: "string", description: "GA4 property ID (numeric)" },
@@ -59,6 +63,7 @@ export const tools: Tool[] = [
     name: "ga4_create_custom_dimension",
     description: "Register a new custom dimension in a GA4 property.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         property_id: { type: "string", description: "GA4 property ID (numeric)" },
@@ -74,6 +79,7 @@ export const tools: Tool[] = [
     name: "ga4_list_custom_metrics",
     description: "List all registered custom metrics for a GA4 property.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         property_id: { type: "string", description: "GA4 property ID (numeric)" },
@@ -85,6 +91,7 @@ export const tools: Tool[] = [
     name: "ga4_list_data_streams",
     description: "List all data streams for a GA4 property.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         property_id: { type: "string", description: "GA4 property ID (numeric)" },
@@ -96,6 +103,7 @@ export const tools: Tool[] = [
     name: "ga4_send_feedback",
     description: "Send feedback about the GA4 MCP tools. Use when a query didn't work as expected.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         feedback_type: { type: "string", description: "One of: bug, feature, question" },
@@ -109,6 +117,7 @@ export const tools: Tool[] = [
     name: "ga4_suggest_improvement",
     description: "Log a GA4 query pattern that didn't work well, so it can be improved.",
     inputSchema: {
+      additionalProperties: false,
       type: "object",
       properties: {
         failed_query: { type: "string", description: "The natural language question the user asked" },

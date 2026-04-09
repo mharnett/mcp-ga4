@@ -13,6 +13,7 @@ import pino from "pino";
 export const logger = pino(
   {
     level: process.env.LOG_LEVEL || "info",
+    redact: ["access_token", "refresh_token", "client_secret", "*.access_token", "*.refresh_token", "*.client_secret"],
     ...(process.env.NODE_ENV !== "test" && process.stderr.isTTY && {
       transport: {
         target: "pino-pretty",
