@@ -7,7 +7,7 @@ export class Ga4AuthError extends Error {
 
 export class Ga4RateLimitError extends Error {
   constructor(public readonly retryAfterMs: number, cause?: unknown) {
-    super(`Rate limited, retry after ${retryAfterMs}ms`);
+    super(`GA4 rate limited, retry after ${retryAfterMs}ms`);
     this.name = "Ga4RateLimitError";
     this.cause = cause;
   }
@@ -20,6 +20,13 @@ export class Ga4ServiceError extends Error {
   }
 }
 
+export function validateCredentials(): { valid: boolean; missing: string[] } {
+  const missing: string[] = [];
+  if (!process.env.GA4_PROPERTY_ID?.trim()) missing.push("GA4_PROPERTY_ID");
+  if (!process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()) missing.push("GOOGLE_APPLICATION_CREDENTIALS");
+  return { valid: missing.length === 0, missing };
+}
+
 export function classifyError(error: any): Error {
   const message = error?.message || String(error);
   const code = error?.code || error?.status;
@@ -27,7 +34,7 @@ export function classifyError(error: any): Error {
   if (code === 401 || code === 403 || code === 7 || code === 16 ||
       message.includes("PERMISSION_DENIED") || message.includes("UNAUTHENTICATED") ||
       message.includes("invalid_grant")) {
-    return new Ga4AuthError(`Auth failed: ${message}. Check credentials.`, error);
+    return new Ga4AuthError(`GA4 auth failed: ${message}. Check credentials.`, error);
   }
 
   if (code === 429 || code === 8 || message.includes("RESOURCE_EXHAUSTED") || message.includes("rateLimitExceeded")) {

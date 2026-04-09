@@ -513,6 +513,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       error: true,
       error_type: error.name,
       message: error.message,
+      server: __cliPkg.name,
     };
 
     if (error instanceof Ga4AuthError) {
@@ -527,8 +528,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     return {
-      content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
       isError: true,
+      content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
     };
   }
 });
