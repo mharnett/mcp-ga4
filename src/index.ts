@@ -50,6 +50,12 @@ if (process.argv.includes("--version") || process.argv.includes("-v")) {
 }
 
 // ============================================
+// ENV VAR TRIMMING
+// ============================================
+
+const envTrimmed = (key: string): string => (process.env[key] || "").trim().replace(/^["']|["']$/g, "");
+
+// ============================================
 // CONFIGURATION
 // ============================================
 
@@ -68,8 +74,8 @@ interface Config {
 
 function loadConfig(): Config {
   // Single-property mode via env vars
-  const propertyId = process.env.GA4_PROPERTY_ID;
-  const credsFile = process.env.GOOGLE_APPLICATION_CREDENTIALS || "";
+  const propertyId = envTrimmed("GA4_PROPERTY_ID");
+  const credsFile = envTrimmed("GOOGLE_APPLICATION_CREDENTIALS");
 
   if (propertyId) {
     return {
@@ -557,6 +563,10 @@ process.on("SIGINT", () => {
 
 process.on("SIGPIPE", () => {
   // Client disconnected -- expected during shutdown
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[error] Unhandled promise rejection:", reason);
 });
 
 main().catch(console.error);
