@@ -398,7 +398,7 @@ Metrics: sessions, totalUsers, newUsers, activeUsers, screenPageViews,
 Use YYYY-MM-DD or relative: "today", "yesterday", "7daysAgo", "30daysAgo", "90daysAgo"`;
 
 const server = new Server(
-  { name: "mcp-ga4", version: "1.0.0" },
+  { name: __cliPkg.name, version: __cliPkg.version },
   { capabilities: { tools: {} } },
 );
 
@@ -542,5 +542,15 @@ async function main() {
   await server.connect(transport);
   console.error("[startup] MCP GA4 server running");
 }
+
+process.on("SIGTERM", () => {
+  console.error("[shutdown] SIGTERM received, exiting");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.error("[shutdown] SIGINT received, exiting");
+  process.exit(0);
+});
 
 main().catch(console.error);
