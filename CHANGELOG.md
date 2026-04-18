@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.0.15] - 2026-04-18
+
+### Added
+- **Startup npm outdated check.** At server boot, fires a fire-and-forget
+  HTTP request to `registry.npmjs.org/mcp-ga4/latest` (2s timeout) and logs
+  a stderr notice when a newer version is available. stdout stays reserved
+  for MCP JSON-RPC. Silent on network error, timeout, or when installed
+  matches registry. Opt out with `MCP_DISABLE_UPDATE_CHECK=1`.
+
+## [2.0.14] - 2026-04-17
+
+### Fixed
+- **Logger wrote to stdout under Claude Desktop, corrupting the MCP JSON-RPC
+  stream.** The local fix (`pino.destination(2)` passed unconditionally as the
+  second arg) had been applied to `src/resilience.ts` but never made it into a
+  published release; v2.0.13 and earlier shipped the TTY-gated version that
+  silently fell back to stdout in non-TTY subprocesses. Claude Desktop rejected
+  every frame with an `unrecognized_keys: level, time, pid, hostname, msg`
+  schema error. Published builds now match local source. 2.0.13 is deprecated
+  on npm.
+
 ## [2.0.10] - 2026-04-04
 
 ### Security
