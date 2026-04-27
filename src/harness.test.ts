@@ -12,7 +12,6 @@ registerMcpTests({
   requiredTools: ["ga4_get_client_context", "ga4_run_report"],
   binEntries: {
     "mcp-ga4": "dist/index.js",
-    "mcp-ga4-setup": "dist/setup.js",
   },
   hasAuthCli: false,
   hasCredentials: false,
