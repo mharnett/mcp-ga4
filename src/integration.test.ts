@@ -42,7 +42,7 @@ describe.skipIf(!LIVE)("mcp-ga4 integration", () => {
   it("ga4_get_client_context returns property info", async () => {
     const result = await client.callTool({
       name: "ga4_get_client_context",
-      arguments: { working_directory: "/Users/mark/claude-code/Flowspace" },
+      arguments: { working_directory: "/Users/mark/claude-code/clients/flowspace" },
     });
     const data = parseToolResult(result);
     expect(data).toBeDefined();
