@@ -8,6 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync, existsSync, appendFileSync, mkdirSync } from "fs";
 import { join, dirname, resolve, isAbsolute } from "path";
+import { fileURLToPath } from "url";
 import { homedir } from "os";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 import { AnalyticsAdminServiceClient } from "@google-analytics/admin";
@@ -24,11 +25,11 @@ import { checkForUpdate } from "./updateNotifier.js";
 import v8 from "v8";
 
 // CLI package info
-const __cliPkg = JSON.parse(readFileSync(join(dirname(new URL(import.meta.url).pathname), "..", "package.json"), "utf-8"));
+const __cliPkg = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "..", "package.json"), "utf-8"));
 
 // Log build fingerprint at startup
 try {
-  const __buildInfoDir = dirname(new URL(import.meta.url).pathname);
+  const __buildInfoDir = dirname(fileURLToPath(import.meta.url));
   const buildInfo = JSON.parse(readFileSync(join(__buildInfoDir, "build-info.json"), "utf-8"));
   console.error(`[build] SHA: ${buildInfo.sha} (${buildInfo.builtAt})`);
 } catch {
@@ -119,7 +120,7 @@ function loadConfig(): Config {
   const searchPaths = [
     process.env.MCP_GA4_CONFIG,
     join(homedir(), ".config", "mcp-ga4", "config.json"),
-    join(dirname(new URL(import.meta.url).pathname), "..", "config.json"),
+    join(dirname(fileURLToPath(import.meta.url)), "..", "config.json"),
   ].filter(Boolean) as string[];
 
   for (const p of searchPaths) {
