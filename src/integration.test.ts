@@ -46,8 +46,9 @@ describe.skipIf(!LIVE)("mcp-ga4 integration", () => {
     });
     const data = parseToolResult(result);
     expect(data).toBeDefined();
-    // Should return property info or available clients
-    expect(data.property_id || data.available_clients || data.error).toBeDefined();
+    expect(data.error).toBeUndefined();
+    // Discovery tool: returns either a specific property_id or a list of available clients.
+    expect(data.property_id ?? data.available_clients).toBeDefined();
   }, 15_000);
 
   it("ga4_run_report with dimensions=date, metrics=sessions", async () => {
@@ -63,16 +64,13 @@ describe.skipIf(!LIVE)("mcp-ga4 integration", () => {
     });
     const data = parseToolResult(result);
     expect(data).toBeDefined();
-    expect(data.rows || data.error).toBeDefined();
-    if (data.rows) {
-      expect(Array.isArray(data.rows)).toBe(true);
-      expect(data.row_count).toBeGreaterThanOrEqual(0);
-      expect(data.date_range).toBeDefined();
-      // Check row structure has date and sessions fields
-      if (data.rows.length > 0) {
-        expect(data.rows[0]).toHaveProperty("date");
-        expect(data.rows[0]).toHaveProperty("sessions");
-      }
+    expect(data.error).toBeUndefined();
+    expect(Array.isArray(data.rows)).toBe(true);
+    expect(data.row_count).toBeGreaterThanOrEqual(0);
+    expect(data.date_range).toBeDefined();
+    if (data.rows.length > 0) {
+      expect(data.rows[0]).toHaveProperty("date");
+      expect(data.rows[0]).toHaveProperty("sessions");
     }
   }, 15_000);
 
@@ -87,11 +85,9 @@ describe.skipIf(!LIVE)("mcp-ga4 integration", () => {
     });
     const data = parseToolResult(result);
     expect(data).toBeDefined();
-    expect(data.rows !== undefined || data.error).toBeTruthy();
-    if (data.rows) {
-      expect(Array.isArray(data.rows)).toBe(true);
-      expect(data.row_count).toBeGreaterThanOrEqual(0);
-    }
+    expect(data.error).toBeUndefined();
+    expect(Array.isArray(data.rows)).toBe(true);
+    expect(data.row_count).toBeGreaterThanOrEqual(0);
   }, 15_000);
 
   it("ga4_list_data_streams returns streams", async () => {
@@ -101,11 +97,9 @@ describe.skipIf(!LIVE)("mcp-ga4 integration", () => {
     });
     const data = parseToolResult(result);
     expect(data).toBeDefined();
-    expect(data.data_streams || data.error).toBeDefined();
-    if (data.data_streams) {
-      expect(Array.isArray(data.data_streams)).toBe(true);
-      expect(data.count).toBeGreaterThanOrEqual(0);
-    }
+    expect(data.error).toBeUndefined();
+    expect(Array.isArray(data.data_streams)).toBe(true);
+    expect(data.count).toBeGreaterThanOrEqual(0);
   }, 15_000);
 
   it("ga4_list_custom_dimensions returns dimensions", async () => {
@@ -115,10 +109,8 @@ describe.skipIf(!LIVE)("mcp-ga4 integration", () => {
     });
     const data = parseToolResult(result);
     expect(data).toBeDefined();
-    expect(data.custom_dimensions || data.error).toBeDefined();
-    if (data.custom_dimensions) {
-      expect(Array.isArray(data.custom_dimensions)).toBe(true);
-    }
+    expect(data.error).toBeUndefined();
+    expect(Array.isArray(data.custom_dimensions)).toBe(true);
   }, 15_000);
 
   it("error: invalid property_id returns error", async () => {

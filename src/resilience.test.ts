@@ -10,13 +10,17 @@ describe("safeResponse", () => {
   it("truncates large arrays", () => {
     const large = Array.from({ length: 10000 }, (_, i) => ({ id: i, x: "y".repeat(100) }));
     const result = safeResponse(large, "test");
-    expect(result.length).toBeLessThan(large.length);
+    expect(result.length).toBeGreaterThanOrEqual(1);
+    expect(result.length).toBeLessThanOrEqual(large.length / 2);
   });
 
   it("truncates large rows in objects", () => {
     const obj = { rows: Array.from({ length: 5000 }, (_, i) => ({ id: i, data: "x".repeat(200) })), row_count: 5000 };
     const result = safeResponse(obj, "test");
-    expect(result.rows.length).toBeLessThan(5000);
+    expect(result.rows.length).toBeGreaterThanOrEqual(1);
+    expect(result.rows.length).toBeLessThanOrEqual(2500);
+    expect((result as any).truncated).toBe(true);
+    expect(result.row_count).toBe(result.rows.length);
   });
 });
 
@@ -34,11 +38,13 @@ describe("withResilience", () => {
       return { success: true };
     }, "test");
     expect(result).toEqual({ success: true });
-    expect(attempts).toBeGreaterThan(1);
+    expect(attempts).toBe(2);
   });
 
   it("fails after max retries", async () => {
-    await expect(withResilience(async () => { throw new Error("500 Server Error"); }, "test"))
+    let attempts = 0;
+    await expect(withResilience(async () => { attempts++; throw new Error("500 Server Error"); }, "test"))
       .rejects.toThrow("Server Error");
+    expect(attempts).toBe(4);
   });
 });
