@@ -17,7 +17,9 @@ import {
   Ga4AuthError,
   Ga4RateLimitError,
   Ga4ServiceError,
+  Ga4InvalidArgumentError,
   classifyError,
+  requireStringArg,
 } from "./errors.js";
 import { tools } from "./tools.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
@@ -457,7 +459,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case "ga4_get_client_context": {
-        const cwd = args?.working_directory as string;
+        const cwd = requireStringArg("working_directory", args?.working_directory);
         const client = getClientFromWorkingDir(config, cwd);
         if (!client) {
           return ok({
@@ -478,7 +480,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "ga4_run_report":
-        return ok(await ga4Manager.runReport(args?.property_id as string, {
+        return ok(await ga4Manager.runReport(requireStringArg("property_id", args?.property_id), {
           dimensions: args?.dimensions as string,
           metrics: args?.metrics as string,
           startDate: args?.start_date as string,
@@ -489,37 +491,38 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }));
 
       case "ga4_realtime_report":
-        return ok(await ga4Manager.realtimeReport(args?.property_id as string, {
+        return ok(await ga4Manager.realtimeReport(requireStringArg("property_id", args?.property_id), {
           dimensions: args?.dimensions as string,
           metrics: args?.metrics as string,
           dimensionFilter: args?.dimension_filter as string,
         }));
 
       case "ga4_list_custom_dimensions":
-        return ok(await ga4Manager.listCustomDimensions(args?.property_id as string));
+        return ok(await ga4Manager.listCustomDimensions(requireStringArg("property_id", args?.property_id)));
 
       case "ga4_create_custom_dimension":
-        return ok(await ga4Manager.createCustomDimension(args?.property_id as string, {
-          parameterName: args?.parameter_name as string,
-          displayName: args?.display_name as string,
+        return ok(await ga4Manager.createCustomDimension(requireStringArg("property_id", args?.property_id), {
+          parameterName: requireStringArg("parameter_name", args?.parameter_name),
+          displayName: requireStringArg("display_name", args?.display_name),
           scope: args?.scope as string,
           description: args?.description as string,
         }));
 
       case "ga4_list_custom_metrics":
-        return ok(await ga4Manager.listCustomMetrics(args?.property_id as string));
+        return ok(await ga4Manager.listCustomMetrics(requireStringArg("property_id", args?.property_id)));
 
       case "ga4_list_data_streams":
-        return ok(await ga4Manager.listDataStreams(args?.property_id as string));
+        return ok(await ga4Manager.listDataStreams(requireStringArg("property_id", args?.property_id)));
 
       case "ga4_send_feedback": {
-        const feedbackType = args?.feedback_type as string;
+        const feedbackType = requireStringArg("feedback_type", args?.feedback_type);
+        const message = requireStringArg("message", args?.message);
         if (!["bug", "feature", "question"].includes(feedbackType)) {
           return ok({ error: "feedback_type must be: bug, feature, or question" });
         }
         ga4Manager.saveFeedback({
           type: feedbackType,
-          message: args?.message as string,
+          message,
           query_context: (args?.query_context as string) || "",
           timestamp: new Date().toISOString(),
         });
@@ -529,8 +532,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "ga4_suggest_improvement": {
         ga4Manager.saveImprovement({
           type: "improvement",
-          failed_query: args?.failed_query as string,
-          expected_result: args?.expected_result as string,
+          failed_query: requireStringArg("failed_query", args?.failed_query),
+          expected_result: requireStringArg("expected_result", args?.expected_result),
           actual_result: (args?.actual_result as string) || "",
           timestamp: new Date().toISOString(),
         });
@@ -541,6 +544,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         throw new Error(`Unknown tool: ${name}`);
     }
   } catch (rawError: any) {
+    // Invalid-argument errors are surfaced immediately with a structured envelope
+    // so callers see exactly which arg failed (no stack trace noise, no hang).
+    if (rawError instanceof Ga4InvalidArgumentError) {
+      logger.warn({ tool: name, arg: rawError.argName, reason: rawError.reason }, "Invalid argument");
+      const response = {
+        error: true,
+        error_type: rawError.name,
+        message: rawError.message,
+        arg: rawError.argName,
+        reason: rawError.reason,
+        server: __cliPkg.name,
+        action_required: `Pass a valid string value for '${rawError.argName}'.`,
+      };
+      return {
+        isError: true,
+        content: [{ type: "text" as const, text: JSON.stringify(safeResponse(response, "error"), null, 2) }],
+      };
+    }
+
     const error = classifyError(rawError);
     logger.error({ error_type: error.name, message: error.message }, "Tool call failed");
 
@@ -572,16 +594,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 });
 
 async function main() {
-  // Startup health check - try listing data streams for the first configured property
-  try {
-    const firstClient = Object.values(config.clients)[0];
-    if (firstClient) {
-      await ga4Manager.listDataStreams(firstClient.property_id);
-      console.error(`[startup] Auth verified: GA4 property ${firstClient.property_id} (${firstClient.name})`);
+  // Startup health check - try listing data streams for the first configured property.
+  // Set MCP_GA4_SKIP_STARTUP_CHECK=1 to bypass (used by input-validation tests that
+  // don't want gRPC retries delaying server start with fake creds).
+  if (!process.env.MCP_GA4_SKIP_STARTUP_CHECK) {
+    try {
+      const firstClient = Object.values(config.clients)[0];
+      if (firstClient) {
+        await ga4Manager.listDataStreams(firstClient.property_id);
+        console.error(`[startup] Auth verified: GA4 property ${firstClient.property_id} (${firstClient.name})`);
+      }
+    } catch (err: any) {
+      console.error(`[STARTUP WARNING] Auth check FAILED: ${err.message}`);
+      console.error(`[STARTUP WARNING] MCP will start but API calls may fail until auth is fixed.`);
     }
-  } catch (err: any) {
-    console.error(`[STARTUP WARNING] Auth check FAILED: ${err.message}`);
-    console.error(`[STARTUP WARNING] MCP will start but API calls may fail until auth is fixed.`);
   }
 
   const transport = new StdioServerTransport();

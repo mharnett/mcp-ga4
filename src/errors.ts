@@ -20,6 +20,41 @@ export class Ga4ServiceError extends Error {
   }
 }
 
+/**
+ * Thrown when a required tool argument is missing, the wrong type, or carries
+ * a sentinel "undefined"/"null" string. Surfaced as a structured error envelope
+ * so callers see "InvalidArgumentError" + which arg failed, instead of the
+ * server hanging on a downstream API call with a malformed property_id.
+ */
+export class Ga4InvalidArgumentError extends Error {
+  constructor(public readonly argName: string, public readonly reason: string) {
+    super(`Invalid argument '${argName}': ${reason}`);
+    this.name = "Ga4InvalidArgumentError";
+  }
+}
+
+/**
+ * Validate that a tool argument is a non-empty string and not the literal
+ * "undefined" / "null" sentinels that LLM clients sometimes send.
+ * Throws Ga4InvalidArgumentError, caught by the dispatch envelope.
+ */
+export function requireStringArg(name: string, value: unknown): string {
+  if (value === undefined || value === null) {
+    throw new Ga4InvalidArgumentError(name, "missing required argument");
+  }
+  if (typeof value !== "string") {
+    throw new Ga4InvalidArgumentError(name, `expected string, got ${typeof value}`);
+  }
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    throw new Ga4InvalidArgumentError(name, "empty string");
+  }
+  if (trimmed === "undefined" || trimmed === "null") {
+    throw new Ga4InvalidArgumentError(name, `literal sentinel '${trimmed}' is not a valid value`);
+  }
+  return value;
+}
+
 export function validateCredentials(): { valid: boolean; missing: string[] } {
   const missing: string[] = [];
   if (!process.env.GA4_PROPERTY_ID?.trim()) missing.push("GA4_PROPERTY_ID");
