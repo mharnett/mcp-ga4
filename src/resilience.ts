@@ -31,6 +31,27 @@ export const logger = pino(
 
 const MAX_RESPONSE_SIZE = 200_000;
 
+function truncateArraysRecursively(obj: any, depth: number = 0): boolean {
+  if (depth > 30) return false;
+  let truncated = false;
+  if (Array.isArray(obj)) {
+    if (obj.length > 1) {
+      const newLength = Math.max(1, Math.floor(obj.length * 0.5));
+      obj.splice(newLength);
+      return true;
+    }
+  } else if (typeof obj === "object" && obj !== null) {
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        if (truncateArraysRecursively(obj[key], depth + 1)) {
+          truncated = true;
+        }
+      }
+    }
+  }
+  return truncated;
+}
+
 export function safeResponse<T>(data: T, context: string): T {
   let current = data;
   for (let pass = 0; pass < 10; pass++) {
@@ -38,32 +59,17 @@ export function safeResponse<T>(data: T, context: string): T {
     const sizeBytes = Buffer.byteLength(jsonStr, "utf-8");
     if (sizeBytes <= MAX_RESPONSE_SIZE) return current;
 
-    // Deep clone on first truncation pass to avoid mutating the original object
     if (pass === 0 && typeof current === "object" && current !== null) {
       current = JSON.parse(JSON.stringify(current)) as T;
     }
 
     logger.warn({ sizeBytes, maxSize: MAX_RESPONSE_SIZE, context, pass }, "Response exceeds size limit, truncating");
 
-    if (Array.isArray(current)) {
-      current = (current as any[]).slice(0, Math.max(1, Math.floor((current as any[]).length * 0.5))) as T;
-      continue;
-    }
-
-    if (typeof current === "object" && current !== null) {
-      const obj = current as Record<string, any>;
-      let truncated = false;
-      for (const key of ["items", "results", "data", "rows", "tags", "triggers", "variables"]) {
-        if (Array.isArray(obj[key]) && obj[key].length > 1) {
-          obj[key] = obj[key].slice(0, Math.max(1, Math.floor(obj[key].length * 0.5)));
-          if ("count" in obj) obj.count = obj[key].length;
-          if ("row_count" in obj) obj.row_count = obj[key].length;
-          obj.truncated = true;
-          truncated = true;
-          break;
-        }
+    if (truncateArraysRecursively(current)) {
+      if (typeof current === "object" && current !== null && !Array.isArray(current)) {
+        (current as any).truncated = true;
       }
-      if (truncated) continue;
+      continue;
     }
 
     break;
