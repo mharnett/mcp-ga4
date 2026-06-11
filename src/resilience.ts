@@ -85,7 +85,7 @@ const isTransient = handleWhen((err) => {
 
 const retryPolicy = retry(isTransient, { maxAttempts: 3, backoff });
 const circuitBreakerPolicy = circuitBreaker(isTransient, { halfOpenAfter: 60_000, breaker: new ConsecutiveBreaker(5) });
-const timeoutPolicy = timeout(30_000, TimeoutStrategy.Cooperative);
+const timeoutPolicy = timeout(30_000, TimeoutStrategy.Aggressive);
 const policy = wrap(timeoutPolicy, circuitBreakerPolicy, retryPolicy);
 
 export async function withResilience<T>(
