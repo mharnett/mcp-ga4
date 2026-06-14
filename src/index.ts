@@ -23,7 +23,7 @@ import {
 } from "./errors.js";
 import { tools } from "./tools.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
-import { checkForUpdate } from "./updateNotifier.js";
+import { checkForUpdate } from "mcp-updatenotifier";
 import v8 from "v8";
 
 // CLI package info
