@@ -12,7 +12,6 @@ import { fileURLToPath } from "url";
 import { homedir } from "os";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
 import { AnalyticsAdminServiceClient } from "@google-analytics/admin";
-import { GoogleAuth } from "google-auth-library";
 import {
   Ga4AuthError,
   Ga4RateLimitError,
@@ -24,6 +23,7 @@ import {
 import { tools } from "./tools.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
+import { selectAuthMode, buildOAuth2Client, type AuthMode } from "./oauthClient.js";
 import v8 from "v8";
 
 // CLI package info
@@ -94,8 +94,30 @@ interface ClientConfig {
 }
 
 interface Config {
+  // Optional service-account keyfile path sourced from config.json (per-user,
+  // gitignored). There is NO machine-local default -- absent here means the
+  // service-account path relies on GOOGLE_APPLICATION_CREDENTIALS from env, or
+  // the user is on the user-OAuth path instead.
   credentials_file: string;
   clients: Record<string, ClientConfig>;
+}
+
+/**
+ * Reconcile env + config.json into a single AuthMode.
+ *
+ * Precedence (see src/oauthClient.selectAuthMode): user-OAuth (GA4_CLIENT_ID/
+ * SECRET/REFRESH_TOKEN) wins; else a service-account keyfile. The SA keyfile may
+ * come from GOOGLE_APPLICATION_CREDENTIALS (env) OR config.json credentials_file
+ * -- env takes precedence, then config.json, so a config-only SA user still
+ * works with no machine-local keyfile default baked into the code.
+ */
+function resolveAuthMode(config: Config): AuthMode {
+  const envMode = selectAuthMode(process.env);
+  if (envMode.mode !== "none") return envMode;
+  if (config.credentials_file) {
+    return { mode: "service_account", keyFile: config.credentials_file };
+  }
+  return { mode: "none" };
 }
 
 function loadConfig(): Config {
@@ -148,7 +170,9 @@ function loadConfig(): Config {
 
   throw new Error(
     "No GA4 configuration found. Either:\n" +
-    "  1. Set GA4_PROPERTY_ID and GOOGLE_APPLICATION_CREDENTIALS env vars, or\n" +
+    "  1. Set GA4_PROPERTY_ID (single-property mode), plus credentials -- the\n" +
+    "     user-OAuth trio (GA4_CLIENT_ID, GA4_CLIENT_SECRET, GA4_REFRESH_TOKEN)\n" +
+    "     or a service account (GOOGLE_APPLICATION_CREDENTIALS), or\n" +
     "  2. Create ~/.config/mcp-ga4/config.json (see config.example.json)"
   );
 }
@@ -172,33 +196,46 @@ function getClientFromWorkingDir(config: Config, cwd: string): ClientConfig | nu
 
 class Ga4Manager {
   private config: Config;
+  private authMode: AuthMode;
   private dataClient: InstanceType<typeof BetaAnalyticsDataClient> | null = null;
   private adminClient: InstanceType<typeof AnalyticsAdminServiceClient> | null = null;
 
   constructor(config: Config) {
     this.config = config;
+    this.authMode = resolveAuthMode(config);
 
-    if (!config.credentials_file && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-      console.error("[STARTUP WARNING] No credentials file configured");
+    if (this.authMode.mode === "none") {
+      console.error(
+        "[STARTUP WARNING] No credentials configured. Set the user-OAuth trio " +
+          "(GA4_CLIENT_ID, GA4_CLIENT_SECRET, GA4_REFRESH_TOKEN) via `npm run auth` / " +
+          "get-refresh-token.cjs, OR set GOOGLE_APPLICATION_CREDENTIALS to a service-account keyfile.",
+      );
+    } else {
+      console.error(`[startup] Auth mode: ${this.authMode.mode}`);
     }
   }
 
-  private getAuth(): GoogleAuth {
-    return new GoogleAuth({
-      keyFile: this.config.credentials_file || undefined,
-      scopes: [
-        "https://www.googleapis.com/auth/analytics.readonly",
-        "https://www.googleapis.com/auth/analytics.edit",
-      ],
-    });
+  /**
+   * Client auth options for the GA4 SDK constructors.
+   *   - user-OAuth       -> { authClient: OAuth2Client(refresh_token) }
+   *   - service account  -> { keyFile } (or ADC when the env var is set and we
+   *                          leave keyFile unset)
+   *   - none             -> {} (SDK falls back to ADC; startup warning already fired)
+   * `scopes` are applied by the caller (SA/ADC needs them; OAuth ignores them).
+   */
+  private authClientOptions(): { authClient?: unknown; keyFile?: string } {
+    if (this.authMode.mode === "oauth") {
+      return { authClient: buildOAuth2Client(this.authMode) };
+    }
+    if (this.authMode.mode === "service_account") {
+      return { keyFile: this.authMode.keyFile };
+    }
+    return {};
   }
 
   private getDataClient(): InstanceType<typeof BetaAnalyticsDataClient> {
     if (!this.dataClient) {
-      const opts: any = {};
-      if (this.config.credentials_file) {
-        opts.keyFile = this.config.credentials_file;
-      }
+      const opts: any = { ...this.authClientOptions() };
       opts.scopes = ["https://www.googleapis.com/auth/analytics.readonly"];
       this.dataClient = new BetaAnalyticsDataClient(opts);
     }
@@ -207,10 +244,7 @@ class Ga4Manager {
 
   private getAdminClient(): InstanceType<typeof AnalyticsAdminServiceClient> {
     if (!this.adminClient) {
-      const opts: any = {};
-      if (this.config.credentials_file) {
-        opts.keyFile = this.config.credentials_file;
-      }
+      const opts: any = { ...this.authClientOptions() };
       opts.scopes = [
         "https://www.googleapis.com/auth/analytics.readonly",
         "https://www.googleapis.com/auth/analytics.edit",

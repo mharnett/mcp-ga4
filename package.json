@@ -5,7 +5,8 @@
   "description": "MCP server for Google Analytics 4 - query GA4 data with natural language via Claude.",
   "main": "dist/index.js",
   "bin": {
-    "mcp-ga4": "dist/index.js"
+    "mcp-ga4": "dist/index.js",
+    "mcp-ga4-auth": "dist/authCli.js"
   },
   "types": "dist/index.d.ts",
   "type": "module",
@@ -16,15 +17,22 @@
     }
   },
   "files": [
-    "dist",
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "dist/build-info.json",
+    "!dist/**/*.test.*",
     "README.md",
     "LICENSE",
-    "config.example.json"
+    "config.example.json",
+    "get-refresh-token.cjs"
   ],
   "scripts": {
     "build": "tsc && node -e \"fs=require('fs');cp=require('child_process');sha=cp.execSync('git rev-parse --short HEAD 2>/dev/null||echo unknown').toString().trim();fs.writeFileSync('dist/build-info.json',JSON.stringify({sha,builtAt:new Date().toISOString()}))\"",
     "start": "node dist/index.js",
     "dev": "tsx src/index.ts",
+    "auth": "node dist/authCli.js",
+    "dev:auth": "tsx src/authCli.ts",
+    "pretest": "npm run build",
     "test": "vitest run",
     "smoke": "scripts/healthcheck.sh"
   },

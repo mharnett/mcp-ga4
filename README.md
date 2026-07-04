@@ -25,26 +25,98 @@ npm install
 npm run build
 ```
 
+## Authentication
+
+`mcp-ga4` supports **two** credential families. Pick whichever matches what you
+have. There is **no** machine-local credentials path baked into the code -- the
+only credential inputs are environment variables and (optionally) your own
+per-user `config.json`.
+
+### Option A: User OAuth (primary)
+
+Use this if you want the server to act as a Google **user** (your own GA4
+login). You bring your own Google OAuth client and mint a refresh token once.
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials),
+   create an **OAuth 2.0 Client ID** of type **Desktop app**. Enable the
+   **Google Analytics Data API** (and the **Admin API** if you use the
+   custom-dimension tools).
+2. Export your client credentials and run the token helper (uses PKCE, opens a
+   browser, prints the token to stdout):
+
+   ```bash
+   export GA4_CLIENT_ID=...            # from the Desktop-app client
+   export GA4_CLIENT_SECRET=...
+   node get-refresh-token.cjs          # or: npm run auth
+   ```
+
+   > Do **not** redirect this command's stdout to a shared log -- the refresh
+   > token is printed there by design.
+
+3. Copy the printed `GA4_REFRESH_TOKEN=...` into your environment. At runtime the
+   server reads these three env vars:
+
+   ```bash
+   GA4_CLIENT_ID=...
+   GA4_CLIENT_SECRET=...
+   GA4_REFRESH_TOKEN=...
+   ```
+
+The scope requested is read from `config.json` `oauth.scope` (see below), so the
+helper and the running server never disagree on what you granted.
+
+### Option B: Service account
+
+Use this if you have a Google **service-account** JSON keyfile with access to the
+GA4 property. No refresh token is involved -- the server picks the keyfile up via
+Application Default Credentials:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+```
+
+If **both** families are configured, user OAuth wins.
+
+### Scopes (minimum grant)
+
+Scopes live in `config.json` under `oauth.scope`. The committed default is:
+
+```
+https://www.googleapis.com/auth/analytics.readonly
+https://www.googleapis.com/auth/analytics.edit
+```
+
+`analytics.edit` is required because `ga4_create_custom_dimension` mutates the
+property via the Admin API. If you only need read access, override `oauth.scope`
+in your own `config.json` to `analytics.readonly` alone and re-run the helper.
+
 ## Configuration
 
 **Security:** Never share your `.mcp.json` file or commit it to git -- it may contain API credentials. Add `.mcp.json` to your `.gitignore`.
 
 ### Mode 1: Single Property (env vars)
 
-Set environment variables to connect to a single GA4 property:
+Set a property ID plus one of the auth families above:
 
 ```bash
 GA4_PROPERTY_ID=123456789
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+# then EITHER the OAuth trio (GA4_CLIENT_ID/SECRET/REFRESH_TOKEN)
+# OR a service account: GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 ```
 
 ### Mode 2: Multi-Client (config.json)
 
-Create a `config.json` in the project root to map multiple GA4 properties to project directories. The server auto-detects which property to use based on the caller's working directory.
+Create a `config.json` in the project root to map multiple GA4 properties to
+project directories. The server auto-detects which property to use based on the
+caller's working directory. Credentials come from the environment (Option A/B
+above); `config.json` may optionally carry a `credentials_file` service-account
+path for a config-only SA setup.
 
 ```json
 {
-  "credentials_file": "/path/to/oauth-credentials.json",
+  "oauth": {
+    "scope": "https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/analytics.edit"
+  },
   "clients": {
     "client-a": {
       "name": "Client A",
