@@ -60,7 +60,6 @@ export function selectAuthMode(env: NodeJS.ProcessEnv): AuthMode {
 
 /**
  * Build a google-auth-library OAuth2Client from a resolved user-OAuth mode.
- * The GA4 SDK constructors accept this as `{ authClient }`.
  */
 export function buildOAuth2Client(auth: {
   clientId: string;
@@ -70,4 +69,38 @@ export function buildOAuth2Client(auth: {
   const client = new OAuth2Client(auth.clientId, auth.clientSecret);
   client.setCredentials({ refresh_token: auth.refreshToken });
   return client;
+}
+
+/** Constructor options handed to the GA4 SDK clients (data + admin). */
+export interface Ga4ClientAuthOptions {
+  /**
+   * An explicit auth instance for the SDK. CRITICAL: the key MUST be `auth`,
+   * not `authClient`. Both @google-analytics/data and @google-analytics/admin
+   * default to the gRPC transport in Node, and google-gax's gRPC path reads
+   * `options.auth || new GoogleAuth(options)` (google-gax grpc.js). It never
+   * looks at `authClient` on that path -- so passing our OAuth2Client under
+   * `authClient` is silently dropped and gax falls back to Application Default
+   * Credentials, ignoring the user's refresh token entirely.
+   */
+  auth?: OAuth2Client;
+  /** Service-account keyfile path (SA mode). */
+  keyFile?: string;
+}
+
+/**
+ * Translate a resolved AuthMode into the GA4 SDK constructor options.
+ *   - oauth           -> { auth: OAuth2Client(refresh_token) }
+ *   - service_account -> { keyFile }
+ *   - none            -> {} (SDK falls back to ADC; a startup warning fires)
+ *
+ * `scopes` are added by the caller (SA/ADC needs them; OAuth ignores them).
+ */
+export function buildClientAuthOptions(authMode: AuthMode): Ga4ClientAuthOptions {
+  if (authMode.mode === "oauth") {
+    return { auth: buildOAuth2Client(authMode) };
+  }
+  if (authMode.mode === "service_account") {
+    return { keyFile: authMode.keyFile };
+  }
+  return {};
 }

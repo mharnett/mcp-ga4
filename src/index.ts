@@ -23,7 +23,7 @@ import {
 import { tools } from "./tools.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
-import { selectAuthMode, buildOAuth2Client, type AuthMode } from "./oauthClient.js";
+import { selectAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
 import v8 from "v8";
 
 // CLI package info
@@ -215,27 +215,12 @@ class Ga4Manager {
     }
   }
 
-  /**
-   * Client auth options for the GA4 SDK constructors.
-   *   - user-OAuth       -> { authClient: OAuth2Client(refresh_token) }
-   *   - service account  -> { keyFile } (or ADC when the env var is set and we
-   *                          leave keyFile unset)
-   *   - none             -> {} (SDK falls back to ADC; startup warning already fired)
-   * `scopes` are applied by the caller (SA/ADC needs them; OAuth ignores them).
-   */
-  private authClientOptions(): { authClient?: unknown; keyFile?: string } {
-    if (this.authMode.mode === "oauth") {
-      return { authClient: buildOAuth2Client(this.authMode) };
-    }
-    if (this.authMode.mode === "service_account") {
-      return { keyFile: this.authMode.keyFile };
-    }
-    return {};
-  }
-
   private getDataClient(): InstanceType<typeof BetaAnalyticsDataClient> {
     if (!this.dataClient) {
-      const opts: any = { ...this.authClientOptions() };
+      // buildClientAuthOptions passes the OAuth2Client under `auth` (NOT
+      // `authClient`) -- the key google-gax's gRPC transport actually reads.
+      // The authWiring test locks this in.
+      const opts: any = { ...buildClientAuthOptions(this.authMode) };
       opts.scopes = ["https://www.googleapis.com/auth/analytics.readonly"];
       this.dataClient = new BetaAnalyticsDataClient(opts);
     }
@@ -244,7 +229,7 @@ class Ga4Manager {
 
   private getAdminClient(): InstanceType<typeof AnalyticsAdminServiceClient> {
     if (!this.adminClient) {
-      const opts: any = { ...this.authClientOptions() };
+      const opts: any = { ...buildClientAuthOptions(this.authMode) };
       opts.scopes = [
         "https://www.googleapis.com/auth/analytics.readonly",
         "https://www.googleapis.com/auth/analytics.edit",
