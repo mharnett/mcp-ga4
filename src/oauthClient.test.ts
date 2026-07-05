@@ -90,6 +90,15 @@ describe("resolveAuthMode (env + config.json credentials_file, loud on none)", (
     expect(m).toEqual({ mode: "service_account", keyFile: "/config/sa.json" });
   });
 
+  it("env GOOGLE_APPLICATION_CREDENTIALS overrides config.json credentials_file (12-factor)", () => {
+    const m = resolveAuthMode(
+      { GOOGLE_APPLICATION_CREDENTIALS: "/env/sa.json" } as NodeJS.ProcessEnv,
+      "/config/sa.json",
+    );
+    // Both resolve to service_account; env keyfile must win on PATH.
+    expect(m).toEqual({ mode: "service_account", keyFile: "/env/sa.json" });
+  });
+
   it("(b) only an OAuth triple (no keyfile anywhere) -> selects OAuth", () => {
     const m = resolveAuthMode({
       GA4_CLIENT_ID: "cid",

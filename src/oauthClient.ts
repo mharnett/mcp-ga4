@@ -81,7 +81,9 @@ export const GA4_NO_CREDENTIALS_MESSAGE =
  * Precedence, config-time and deterministic (NOT runtime failover):
  *   1. Explicit keyfile -- from GOOGLE_APPLICATION_CREDENTIALS (env) OR the
  *      config.json `credentials_file` argument. Either outranks a user-OAuth
- *      triple, even when both are present.
+ *      triple, even when both are present. When BOTH keyfile sources are set,
+ *      the ENV keyfile wins over config.json (12-factor: env overrides the
+ *      committed config without editing files).
  *   2. User-OAuth triple (GA4_CLIENT_ID + GA4_CLIENT_SECRET + GA4_REFRESH_TOKEN).
  *   3. Neither -> throw GA4_NO_CREDENTIALS_MESSAGE. Never a silent machine-local
  *      default; a later API 403 surfaces as the API error, not a credential swap.
@@ -92,12 +94,12 @@ export function resolveAuthMode(
 ): ResolvedAuthMode {
   const envMode = selectAuthMode(env);
 
-  // 1. Keyfile / service account first. Env keyfile is captured by selectAuthMode;
-  //    a config.json credentials_file is an equally-explicit keyfile source and
-  //    also outranks OAuth.
+  // 1. Keyfile / service account first. Env keyfile (captured by selectAuthMode)
+  //    wins over a config.json credentials_file when both are set (12-factor:
+  //    env overrides committed config); either outranks OAuth.
   const keyFile =
-    (configCredentialsFile || "").trim() ||
-    (envMode.mode === "service_account" ? envMode.keyFile : "");
+    (envMode.mode === "service_account" ? envMode.keyFile : "") ||
+    (configCredentialsFile || "").trim();
   if (keyFile) {
     return { mode: "service_account", keyFile };
   }
