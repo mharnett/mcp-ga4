@@ -3,19 +3,23 @@
 // ============================================
 // ga4 supports TWO credential families, published:
 //
-//   1. User-OAuth  -- the user runs `get-refresh-token.cjs`, which mints a
+//   1. Service account / keyfile (RECOMMENDED for unattended/server use) --
+//      the user points GOOGLE_APPLICATION_CREDENTIALS (env) or config.json
+//      `credentials_file` at a JSON keyfile. That keyfile may be a real
+//      service-account key OR an `authorized_user` OAuth token dump -- both are
+//      accepted by GoogleAuth via the `keyFile` option (do NOT reject
+//      authorized_user). The service account must be granted access on the GA4
+//      property. No env refresh token is involved.
+//
+//   2. User-OAuth -- the user runs `get-refresh-token.cjs`, which mints a
 //      refresh token against their OWN Google OAuth client. The runtime reads
 //      GA4_CLIENT_ID / GA4_CLIENT_SECRET / GA4_REFRESH_TOKEN from env and drives
-//      the GA4 SDKs with an OAuth2 client. This is the PRIMARY path (the
-//      credential Mark's install actually uses is an `authorized_user` token
-//      dump of exactly this shape).
+//      the GA4 SDKs with an OAuth2 client. Best for personal/interactive use.
 //
-//   2. Service account -- the user points GOOGLE_APPLICATION_CREDENTIALS at a
-//      service-account JSON keyfile. The GA4 SDKs pick that up via Application
-//      Default Credentials (ADC). No refresh token is involved.
-//
-// There is NO machine-local default keyfile path. If neither family is
-// configured, selection returns `none` and the caller surfaces a clear error.
+// Selection is DETERMINISTIC and config-time -- an explicit keyfile/SA wins,
+// then user-OAuth, else a loud onboarding error. There is NO machine-local
+// default keyfile and NO silent runtime failover: a later 403 surfaces as the
+// API error, not as a silent switch to another credential family.
 
 import { OAuth2Client } from "google-auth-library";
 
@@ -23,6 +27,9 @@ export type AuthMode =
   | { mode: "oauth"; clientId: string; clientSecret: string; refreshToken: string }
   | { mode: "service_account"; keyFile: string }
   | { mode: "none" };
+
+/** A resolved, usable auth mode -- `none` never escapes resolveAuthMode(). */
+export type ResolvedAuthMode = Exclude<AuthMode, { mode: "none" }>;
 
 /** Trim + strip surrounding quotes from an env value; "" if absent. */
 function envVal(env: NodeJS.ProcessEnv, key: string): string {
@@ -32,17 +39,22 @@ function envVal(env: NodeJS.ProcessEnv, key: string): string {
 /**
  * Decide which credential family to use, purely from env.
  *
- * Precedence: user-OAuth wins when a full OAuth triple is present, because
- * that is ga4's primary path and the most explicit signal ("I minted a token
- * for this MCP"). Otherwise, a service-account keyfile path
- * (GOOGLE_APPLICATION_CREDENTIALS) selects the SA family. If neither is fully
- * configured, `none`.
+ * Precedence (keyfile/SA-FIRST): an explicit service-account keyfile
+ * (GOOGLE_APPLICATION_CREDENTIALS) wins -- it is the recommended, deterministic
+ * signal for unattended/server installs. Otherwise a full user-OAuth triple
+ * (GA4_CLIENT_ID + GA4_CLIENT_SECRET + GA4_REFRESH_TOKEN) selects the OAuth
+ * family. If neither is configured, `none`.
  *
  * A partial OAuth set (e.g. client id + secret but no refresh token) does NOT
- * select OAuth -- it falls through to SA / none so the user gets a clear
- * "missing GA4_REFRESH_TOKEN" style error rather than a silent half-config.
+ * select OAuth -- it falls through to `none` so the user gets a clear
+ * onboarding error rather than a silent half-config.
  */
 export function selectAuthMode(env: NodeJS.ProcessEnv): AuthMode {
+  const keyFile = envVal(env, "GOOGLE_APPLICATION_CREDENTIALS");
+  if (keyFile) {
+    return { mode: "service_account", keyFile };
+  }
+
   const clientId = envVal(env, "GA4_CLIENT_ID");
   const clientSecret = envVal(env, "GA4_CLIENT_SECRET");
   const refreshToken = envVal(env, "GA4_REFRESH_TOKEN");
@@ -50,12 +62,53 @@ export function selectAuthMode(env: NodeJS.ProcessEnv): AuthMode {
     return { mode: "oauth", clientId, clientSecret, refreshToken };
   }
 
-  const keyFile = envVal(env, "GOOGLE_APPLICATION_CREDENTIALS");
+  return { mode: "none" };
+}
+
+/** Clear onboarding error naming BOTH credential options. */
+export const GA4_NO_CREDENTIALS_MESSAGE =
+  "No GA4 credentials configured. Choose ONE (keyfile/service account takes precedence when both are set):\n" +
+  "  1. Service account (RECOMMENDED for unattended/server use): set " +
+  "GOOGLE_APPLICATION_CREDENTIALS (or config.json `credentials_file`) to a JSON " +
+  "keyfile whose service account is granted access on the GA4 property.\n" +
+  "  2. User OAuth (personal/interactive use): set GA4_CLIENT_ID, GA4_CLIENT_SECRET, " +
+  "and GA4_REFRESH_TOKEN (run `npm run auth` / get-refresh-token.cjs to mint the refresh token).";
+
+/**
+ * Reconcile env + an optional config.json `credentials_file` into a single
+ * usable AuthMode -- keyfile/SA-FIRST, then user-OAuth, else a LOUD error.
+ *
+ * Precedence, config-time and deterministic (NOT runtime failover):
+ *   1. Explicit keyfile -- from GOOGLE_APPLICATION_CREDENTIALS (env) OR the
+ *      config.json `credentials_file` argument. Either outranks a user-OAuth
+ *      triple, even when both are present.
+ *   2. User-OAuth triple (GA4_CLIENT_ID + GA4_CLIENT_SECRET + GA4_REFRESH_TOKEN).
+ *   3. Neither -> throw GA4_NO_CREDENTIALS_MESSAGE. Never a silent machine-local
+ *      default; a later API 403 surfaces as the API error, not a credential swap.
+ */
+export function resolveAuthMode(
+  env: NodeJS.ProcessEnv,
+  configCredentialsFile?: string,
+): ResolvedAuthMode {
+  const envMode = selectAuthMode(env);
+
+  // 1. Keyfile / service account first. Env keyfile is captured by selectAuthMode;
+  //    a config.json credentials_file is an equally-explicit keyfile source and
+  //    also outranks OAuth.
+  const keyFile =
+    (configCredentialsFile || "").trim() ||
+    (envMode.mode === "service_account" ? envMode.keyFile : "");
   if (keyFile) {
     return { mode: "service_account", keyFile };
   }
 
-  return { mode: "none" };
+  // 2. User-OAuth triple.
+  if (envMode.mode === "oauth") {
+    return envMode;
+  }
+
+  // 3. Nothing configured -- fail loudly, name both options.
+  throw new Error(GA4_NO_CREDENTIALS_MESSAGE);
 }
 
 /**

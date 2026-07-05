@@ -23,7 +23,7 @@ import {
 import { tools } from "./tools.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
-import { selectAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
+import { resolveAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
 import v8 from "v8";
 
 // CLI package info
@@ -100,24 +100,6 @@ interface Config {
   // the user is on the user-OAuth path instead.
   credentials_file: string;
   clients: Record<string, ClientConfig>;
-}
-
-/**
- * Reconcile env + config.json into a single AuthMode.
- *
- * Precedence (see src/oauthClient.selectAuthMode): user-OAuth (GA4_CLIENT_ID/
- * SECRET/REFRESH_TOKEN) wins; else a service-account keyfile. The SA keyfile may
- * come from GOOGLE_APPLICATION_CREDENTIALS (env) OR config.json credentials_file
- * -- env takes precedence, then config.json, so a config-only SA user still
- * works with no machine-local keyfile default baked into the code.
- */
-function resolveAuthMode(config: Config): AuthMode {
-  const envMode = selectAuthMode(process.env);
-  if (envMode.mode !== "none") return envMode;
-  if (config.credentials_file) {
-    return { mode: "service_account", keyFile: config.credentials_file };
-  }
-  return { mode: "none" };
 }
 
 function loadConfig(): Config {
@@ -202,17 +184,11 @@ class Ga4Manager {
 
   constructor(config: Config) {
     this.config = config;
-    this.authMode = resolveAuthMode(config);
-
-    if (this.authMode.mode === "none") {
-      console.error(
-        "[STARTUP WARNING] No credentials configured. Set the user-OAuth trio " +
-          "(GA4_CLIENT_ID, GA4_CLIENT_SECRET, GA4_REFRESH_TOKEN) via `npm run auth` / " +
-          "get-refresh-token.cjs, OR set GOOGLE_APPLICATION_CREDENTIALS to a service-account keyfile.",
-      );
-    } else {
-      console.error(`[startup] Auth mode: ${this.authMode.mode}`);
-    }
+    // Deterministic, config-time selection (keyfile/SA first, then user-OAuth).
+    // resolveAuthMode() throws a loud onboarding error when NEITHER family is
+    // configured -- no silent machine-local default, no runtime failover.
+    this.authMode = resolveAuthMode(process.env, config.credentials_file);
+    console.error(`[startup] Auth mode: ${this.authMode.mode}`);
   }
 
   private getDataClient(): InstanceType<typeof BetaAnalyticsDataClient> {

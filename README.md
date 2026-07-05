@@ -27,12 +27,35 @@ npm run build
 
 ## Authentication
 
-`mcp-ga4` supports **two** credential families. Pick whichever matches what you
-have. There is **no** machine-local credentials path baked into the code -- the
-only credential inputs are environment variables and (optionally) your own
-per-user `config.json`.
+`mcp-ga4` supports **two** credential families. Selection is deterministic and
+happens once, at startup: an explicit **keyfile / service account wins**, then
+**user OAuth**, and if **neither** is configured the server exits with a loud
+onboarding error naming both options. There is **no** machine-local credentials
+path baked into the code and **no** silent runtime failover -- the only
+credential inputs are environment variables and (optionally) your own per-user
+`config.json`. (A later `403` therefore surfaces as the API error, not as a
+silent switch to the other credential family.)
 
-### Option A: User OAuth (primary)
+> **Precedence:** when **both** families are configured, the **keyfile /
+> service account takes precedence** over user OAuth.
+
+### Option A: Service account (recommended for unattended / server use)
+
+Use this for any always-on or server deployment. Point
+`GOOGLE_APPLICATION_CREDENTIALS` (or `config.json` `credentials_file`) at a JSON
+keyfile. The service account **must be granted access on the GA4 property**
+(Admin → Property Access Management → add the service-account email with at least
+Viewer). No refresh token is involved -- the server hands the keyfile to the GA4
+SDKs directly:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+```
+
+The keyfile may be a real service-account key **or** an `authorized_user` OAuth
+token dump -- both are accepted via the `keyFile` option.
+
+### Option B: User OAuth (personal / interactive use)
 
 Use this if you want the server to act as a Google **user** (your own GA4
 login). You bring your own Google OAuth client and mint a refresh token once.
@@ -64,18 +87,6 @@ login). You bring your own Google OAuth client and mint a refresh token once.
 
 The scope requested is read from `config.json` `oauth.scope` (see below), so the
 helper and the running server never disagree on what you granted.
-
-### Option B: Service account
-
-Use this if you have a Google **service-account** JSON keyfile with access to the
-GA4 property. No refresh token is involved -- the server picks the keyfile up via
-Application Default Credentials:
-
-```bash
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-```
-
-If **both** families are configured, user OAuth wins.
 
 ### Scopes (minimum grant)
 
