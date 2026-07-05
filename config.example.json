@@ -1,5 +1,7 @@
 {
-  "credentials_file": "/path/to/credentials.json",
+  "oauth": {
+    "scope": "https://www.googleapis.com/auth/analytics.readonly https://www.googleapis.com/auth/analytics.edit"
+  },
   "clients": {
     "my-site": {
       "name": "My Website",
