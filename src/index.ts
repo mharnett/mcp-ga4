@@ -21,6 +21,7 @@ import {
   requireStringArg,
 } from "./errors.js";
 import { tools } from "./tools.js";
+import { filterTools, assertWriteAllowed } from "./writeGate.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
 import { resolveAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
@@ -442,7 +443,7 @@ const server = new Server(
   { capabilities: { tools: {} } },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools }));
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: filterTools(tools) }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
@@ -452,6 +453,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   });
 
   try {
+    assertWriteAllowed(name);
     switch (name) {
       case "ga4_get_client_context": {
         const cwd = requireStringArg("working_directory", args?.working_directory);

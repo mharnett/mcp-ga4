@@ -48,6 +48,7 @@
     "cockatiel": "^3.2.1",
     "google-auth-library": "^9.14.0",
     "mcp-updatenotifier": "^1.0.0",
+    "mcp-write-gate": "^1.0.0",
     "pino": "^8.21.0",
     "pino-pretty": "^13.1.3"
   },
