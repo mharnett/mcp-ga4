@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.2.0](https://github.com/mharnett/mcp-ga4/compare/v2.1.0...v2.2.0) (2026-08-26)
+
+
+### Features
+
+* write gate via mcp-write-gate — read-only by default ([d874d60](https://github.com/mharnett/mcp-ga4/commit/d874d60f7b21f7403e5af6c9cfabface9758ab84))
+
+
+### Bug Fixes
+
+* **ci:** auto-provision hc-ping check via create=1 query param ([52d3125](https://github.com/mharnett/mcp-ga4/commit/52d31252dc66c9a2ca73fce3e1fb1f4689854d01))
+* **ci:** auto-provision hc-ping check via create=1 query param ([b139b46](https://github.com/mharnett/mcp-ga4/commit/b139b467aa0faaf7b4e411490688a4f5abe596d5))
+* **ci:** fail loudly when hc-ping rejects the ping ([d57fb34](https://github.com/mharnett/mcp-ga4/commit/d57fb347e8b59b05de11c2b29e22a44bafd70fca))
+* **ci:** fail loudly when hc-ping rejects the ping ([40afd06](https://github.com/mharnett/mcp-ga4/commit/40afd0610cb16fde3df724f1c7547c57104e2cc4))
+
 ## [2.1.0](https://github.com/mharnett/mcp-ga4/compare/v2.0.0...v2.1.0) (2026-07-09)
 
 
