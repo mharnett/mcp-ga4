@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.3.0](https://github.com/mharnett/mcp-ga4/compare/v2.2.0...v2.3.0) (2026-09-29)
+
+
+### Features
+
+* **setup:** register with Claude Desktop, not just Claude Code CLI (Flowspace report 2026-04-17) ([e4002d4](https://github.com/mharnett/mcp-ga4/commit/e4002d41ec296b01346c1821cd415b6e87f337ad))
+* **setup:** register with Claude Desktop, not just Claude Code CLI (Flowspace report 2026-04-17) ([d1f590c](https://github.com/mharnett/mcp-ga4/commit/d1f590c754872ede6b2887e75ba218a799296c7c))
+
 ## [2.2.0](https://github.com/mharnett/mcp-ga4/compare/v2.1.0...v2.2.0) (2026-08-26)
 
 
