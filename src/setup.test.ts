@@ -79,8 +79,9 @@ describe("buildServerEntry", () => {
 
 describe("resolveDesktopConfigPath", () => {
   it("uses Application Support on macOS", () => {
+    // join() so the expectation holds on the Windows CI runners too.
     expect(resolveDesktopConfigPath("darwin", "/Users/k", {})).toBe(
-      "/Users/k/Library/Application Support/Claude/claude_desktop_config.json",
+      join("/Users/k", "Library", "Application Support", "Claude", "claude_desktop_config.json"),
     );
   });
   it("uses %APPDATA% on Windows", () => {
