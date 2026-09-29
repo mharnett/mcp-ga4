@@ -10,6 +10,28 @@ MCP server for Google Analytics 4 -- run reports, realtime data, custom dimensio
 - Relative date support (today, yesterday, 7daysAgo, 30daysAgo, 90daysAgo)
 - Built on official Google SDKs with resilience patterns
 
+## Quick start
+
+1. Get credentials -- a service-account keyfile, or a user-OAuth refresh token
+   (see [Authentication](#authentication)).
+2. Register the server with every Claude client on this machine:
+
+   ```bash
+   # service account
+   npx -p mcp-ga4 mcp-ga4-setup --property-id 123456789 --credentials /path/to/service-account.json
+
+   # or user OAuth: export GA4_CLIENT_ID / GA4_CLIENT_SECRET / GA4_REFRESH_TOKEN first
+   npx -p mcp-ga4 mcp-ga4-setup --property-id 123456789
+   ```
+
+   The wizard detects **Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`
+   on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows) and the
+   **Claude Code CLI** (`claude` on PATH) and registers `ga4` with each one it
+   finds. Other servers and settings in the Desktop config are preserved; an
+   invalid config file is left untouched and the wizard stops. Re-running is
+   safe. Use `--claude-desktop-only` or `--claude-code-only` to target one client.
+3. Fully quit and reopen Claude Desktop (Cmd+Q), or restart your `claude` session.
+
 ## Installation
 
 ```bash
@@ -145,9 +167,10 @@ path for a config-only SA setup.
 
 ## Usage
 
-### Claude Code (.mcp.json)
+### Manual configuration
 
-Single-property mode:
+`mcp-ga4-setup` (see [Quick start](#quick-start)) writes this for you. To manage
+the entry by hand, the single-property shape is:
 
 ```json
 {
@@ -177,7 +200,7 @@ Multi-client mode:
 }
 ```
 
-**Claude Desktop:** Add to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) or `%APPDATA%\Claude\claude_desktop_config.json` (Windows).
+The same `mcpServers` shape is used by Claude Code project configs and by Claude Desktop's `claude_desktop_config.json`.
 
 ## Common Query Patterns
 
