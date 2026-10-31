@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.1](https://github.com/mharnett/mcp-ga4/compare/v2.3.0...v2.3.1) (2026-10-31)
+
+
+### Miscellaneous Chores
+
+* release 2.3.1 ([#20](https://github.com/mharnett/mcp-ga4/issues/20)) ([aca584b](https://github.com/mharnett/mcp-ga4/commit/aca584bf92c8feb9c5089e9d4c636a5349bacc58))
+
 ## [2.3.0](https://github.com/mharnett/mcp-ga4/compare/v2.2.0...v2.3.0) (2026-09-29)
 
 
