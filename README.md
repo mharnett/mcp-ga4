@@ -53,7 +53,7 @@ GOOGLE_APPLICATION_CREDENTIALS = "/path/to/service-account.json"
 
 ## Features
 
-- 9 tools covering reporting, realtime data, custom dimensions/metrics, data streams, and feedback
+- 9 tools covering reporting, realtime data, custom dimensions/metrics, data streams, and feedback (8 by default; `ga4_create_custom_dimension` changes GA4 and is listed only when `GA4_MCP_WRITE=true` is set)
 - Two configuration modes: single-property (env vars) and multi-client (config.json)
 - Supports both service account and OAuth credentials
 - Relative date support (today, yesterday, 7daysAgo, 30daysAgo, 90daysAgo)
@@ -276,7 +276,7 @@ dimensions=`deviceCategory`, metrics=`sessions,totalUsers`
 | `ga4_run_report` | Run a standard GA4 report with dimensions, metrics, date range, and filters |
 | `ga4_realtime_report` | Query realtime data (last 30 minutes) |
 | `ga4_list_custom_dimensions` | List all custom dimensions for the property |
-| `ga4_create_custom_dimension` | Create a new custom dimension |
+| `ga4_create_custom_dimension` | Create a new custom dimension (write tool: hidden unless `GA4_MCP_WRITE=true`) |
 | `ga4_list_custom_metrics` | List all custom metrics for the property |
 | `ga4_list_data_streams` | List web/app data streams and their measurement IDs |
 | `ga4_send_feedback` | Submit feedback on a query result |
