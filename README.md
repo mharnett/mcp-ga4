@@ -2,6 +2,55 @@
 
 MCP server for Google Analytics 4 -- run reports, realtime data, custom dimensions, and property management via Claude.
 
+## Quick install
+
+Claude Code, one line (replace the placeholder values; see [Authentication](#authentication) for a service account or user OAuth):
+
+```bash
+claude mcp add --env GA4_PROPERTY_ID=YOUR_PROPERTY_ID --env GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json --transport stdio ga4 -- npx -y mcp-ga4
+```
+
+For user OAuth instead of a service account, replace the credentials variable with `GA4_CLIENT_ID`, `GA4_CLIENT_SECRET` and `GA4_REFRESH_TOKEN`.
+
+<details>
+<summary>Claude Desktop</summary>
+
+Add this to `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS), then fully quit and restart Claude Desktop:
+
+```json
+{
+  "mcpServers": {
+    "ga4": {
+      "command": "npx",
+      "args": ["-y", "mcp-ga4"],
+      "env": {
+        "GA4_PROPERTY_ID": "YOUR_PROPERTY_ID",
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/service-account.json"
+      }
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary>Codex CLI</summary>
+
+Add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.ga4]
+command = "npx"
+args = ["-y", "mcp-ga4"]
+
+[mcp_servers.ga4.env]
+GA4_PROPERTY_ID = "YOUR_PROPERTY_ID"
+GOOGLE_APPLICATION_CREDENTIALS = "/path/to/service-account.json"
+```
+
+</details>
+
 ## Features
 
 - 9 tools covering reporting, realtime data, custom dimensions/metrics, data streams, and feedback
