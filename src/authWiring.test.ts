@@ -12,8 +12,8 @@
 // logs as oauth while every call actually uses ADC.
 //
 // This test constructs the REAL SDK clients from buildClientAuthOptions() output
-// and asserts the constructed client adopted OUR OAuth2Client instance. It fails
-// against the {authClient:...} form and passes against {auth:...}.
+// and asserts the constructed client adopted OUR auth instance (a GoogleAuth
+// wrapping our OAuth2Client), and that the client can build its gRPC stub.
 
 import { describe, it, expect } from "vitest";
 import { BetaAnalyticsDataClient } from "@google-analytics/data";
@@ -29,11 +29,11 @@ const OAUTH_MODE: AuthMode = {
 };
 
 describe("OAuth mode is actually adopted by the GA4 SDK clients", () => {
-  it("BetaAnalyticsDataClient.auth IS our OAuth2Client (not a fresh ADC GoogleAuth)", () => {
+  it("BetaAnalyticsDataClient.auth IS the GoogleAuth we passed (not a fresh ADC one)", () => {
     const opts = buildClientAuthOptions(OAUTH_MODE);
-    // Precondition: the options must carry our OAuth2Client under a key the
-    // gRPC path reads. If this is the wrong key the SDK never sees it.
-    expect(opts.auth).toBeInstanceOf(OAuth2Client);
+    // Precondition: the options must carry our auth under a key the gRPC path
+    // reads. If this is the wrong key the SDK never sees it.
+    expect(opts.auth).toBeInstanceOf(GoogleAuth);
     const passed = opts.auth;
 
     const client: any = new BetaAnalyticsDataClient({
@@ -41,12 +41,11 @@ describe("OAuth mode is actually adopted by the GA4 SDK clients", () => {
       scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
     });
     // The resolved auth on the constructed client MUST be the very instance we
-    // passed -- proving the refresh token will be used, not ADC.
+    // passed -- a fresh GoogleAuth built by gax would resolve via ADC instead.
     expect(client.auth).toBe(passed);
-    expect(client.auth).not.toBeInstanceOf(GoogleAuth);
   });
 
-  it("AnalyticsAdminServiceClient.auth IS our OAuth2Client", () => {
+  it("AnalyticsAdminServiceClient.auth IS the GoogleAuth we passed", () => {
     const opts = buildClientAuthOptions(OAUTH_MODE);
     const passed = opts.auth;
     const client: any = new AnalyticsAdminServiceClient({
@@ -57,16 +56,38 @@ describe("OAuth mode is actually adopted by the GA4 SDK clients", () => {
       ],
     });
     expect(client.auth).toBe(passed);
-    expect(client.auth).not.toBeInstanceOf(GoogleAuth);
   });
 
-  it("carries the user's refresh token on the adopted client", () => {
+  it("the adopted auth resolves to an OAuth2Client carrying the user's refresh token", async () => {
     const opts = buildClientAuthOptions(OAUTH_MODE);
     const client: any = new BetaAnalyticsDataClient({
       ...opts,
       scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
     });
-    expect(client.auth.credentials.refresh_token).toBe("rt");
+    const resolved: any = await client.auth.getClient();
+    expect(resolved).toBeInstanceOf(OAuth2Client);
+    expect(resolved.credentials.refresh_token).toBe("rt");
+  });
+
+  // Regression: constructing the client is not enough. google-gax 5 calls
+  // `this.auth.getUniverseDomain()` when it builds the gRPC stub (first API
+  // call / initialize()). A bare OAuth2Client has no getUniverseDomain(), so
+  // every OAuth-mode call crashed with "this.auth.getUniverseDomain is not a
+  // function" (2.3.1). initialize() builds the stub without touching the network.
+  it("OAuth-mode BetaAnalyticsDataClient can build its gRPC stub", async () => {
+    const client: any = new BetaAnalyticsDataClient({
+      ...buildClientAuthOptions(OAUTH_MODE),
+      scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+    });
+    await expect(client.initialize()).resolves.toBeDefined();
+  });
+
+  it("OAuth-mode AnalyticsAdminServiceClient can build its gRPC stub", async () => {
+    const client: any = new AnalyticsAdminServiceClient({
+      ...buildClientAuthOptions(OAUTH_MODE),
+      scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+    });
+    await expect(client.initialize()).resolves.toBeDefined();
   });
 
   it("service_account mode still passes a keyFile (unchanged, no OAuth2Client)", () => {
