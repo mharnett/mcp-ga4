@@ -101,22 +101,26 @@ const timeoutPolicy = timeout(30_000, TimeoutStrategy.Aggressive);
 
 // Per-operation circuit breakers: isolate failures by operation name
 const policyCache = new Map<string, any>();
-function getPolicyForOperation(operationName: string) {
-  if (!policyCache.has(operationName)) {
+function getPolicyForOperation(operationName: string, idempotent: boolean) {
+  const key = idempotent ? operationName : `${operationName}#no-retry`;
+  if (!policyCache.has(key)) {
     const breaker = circuitBreaker(isTransient, { halfOpenAfter: 60_000, breaker: new ConsecutiveBreaker(5) });
-    const policy = wrap(timeoutPolicy, breaker, retryPolicy);
-    policyCache.set(operationName, policy);
+    // Non-idempotent writes go out once: an UNAVAILABLE or dropped connection
+    // after GA4 stored the change would otherwise send it again on retry.
+    const policy = idempotent ? wrap(timeoutPolicy, breaker, retryPolicy) : wrap(timeoutPolicy, breaker);
+    policyCache.set(key, policy);
   }
-  return policyCache.get(operationName);
+  return policyCache.get(key);
 }
 
 export async function withResilience<T>(
   fn: () => Promise<T>,
-  operationName: string
+  operationName: string,
+  options: { idempotent?: boolean } = {},
 ): Promise<T> {
   try {
     logger.debug({ operation: operationName }, "Starting API call");
-    const policy = getPolicyForOperation(operationName);
+    const policy = getPolicyForOperation(operationName, options.idempotent !== false);
     const result = await policy.execute(() => fn());
     logger.debug({ operation: operationName }, "API call succeeded");
     return result;
