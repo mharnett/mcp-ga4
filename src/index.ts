@@ -25,6 +25,7 @@ import { filterTools, assertWriteAllowed } from "./writeGate.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
 import { resolveAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
+import { parsePropertyId } from "./propertyId.js";
 import v8 from "v8";
 
 // CLI package info
@@ -117,7 +118,7 @@ function loadConfig(): Config {
         default: {
           name: process.env.GA4_PROPERTY_NAME || "My Property",
           folder: "",
-          property_id: propertyId,
+          property_id: parsePropertyId(propertyId),
         },
       },
     };
