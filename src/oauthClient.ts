@@ -21,7 +21,7 @@
 // default keyfile and NO silent runtime failover: a later 403 surfaces as the
 // API error, not as a silent switch to another credential family.
 
-import { OAuth2Client } from "google-auth-library";
+import { GoogleAuth, OAuth2Client } from "google-auth-library";
 
 export type AuthMode =
   | { mode: "oauth"; clientId: string; clientSecret: string; refreshToken: string }
@@ -136,15 +136,21 @@ export interface Ga4ClientAuthOptions {
    * looks at `authClient` on that path -- so passing our OAuth2Client under
    * `authClient` is silently dropped and gax falls back to Application Default
    * Credentials, ignoring the user's refresh token entirely.
+   *
+   * The value MUST be a GoogleAuth wrapping our OAuth2Client, not the bare
+   * OAuth2Client: google-gax 5 calls `auth.getUniverseDomain()` when it builds
+   * the gRPC stub, and only GoogleAuth has that method. A bare OAuth2Client
+   * crashed every OAuth-mode call with "this.auth.getUniverseDomain is not a
+   * function" (2.3.1).
    */
-  auth?: OAuth2Client;
+  auth?: GoogleAuth;
   /** Service-account keyfile path (SA mode). */
   keyFile?: string;
 }
 
 /**
  * Translate a resolved AuthMode into the GA4 SDK constructor options.
- *   - oauth           -> { auth: OAuth2Client(refresh_token) }
+ *   - oauth           -> { auth: GoogleAuth({ authClient: OAuth2Client(refresh_token) }) }
  *   - service_account -> { keyFile }
  *   - none            -> {} (SDK falls back to ADC; a startup warning fires)
  *
@@ -152,7 +158,7 @@ export interface Ga4ClientAuthOptions {
  */
 export function buildClientAuthOptions(authMode: AuthMode): Ga4ClientAuthOptions {
   if (authMode.mode === "oauth") {
-    return { auth: buildOAuth2Client(authMode) };
+    return { auth: new GoogleAuth({ authClient: buildOAuth2Client(authMode) }) };
   }
   if (authMode.mode === "service_account") {
     return { keyFile: authMode.keyFile };
