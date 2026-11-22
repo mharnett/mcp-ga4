@@ -9,6 +9,8 @@ on:
   # matrix comment below and ci-matrix.guard.test.mjs.
   schedule:
     - cron: '0 14 * * 1'
+  # Also dispatched by release-please.yml on each Release PR branch: its
+  # GITHUB_TOKEN pushes get no pull_request run that reports checks.
   workflow_dispatch:
 
 # Supersede stale PR runs; never cancel a run on main, so every merge keeps
@@ -29,24 +31,16 @@ jobs:
         node-version: ['20.x', '22.x']
 
     steps:
+      # No secrets in this workflow: fork PRs get none, so a secret-backed
+      # step fails every fork PR. @drak-marketing/mcp-test-harness comes
+      # from npm via npm ci; its own tests run in its own repo.
       - uses: actions/checkout@v7
-
-      - name: Checkout mcp-test-harness
-        uses: actions/checkout@v7
-        with:
-          repository: mharnett/mcp-test-harness
-          token: ${{ secrets.GH_PAT }}
-          path: mcp-test-harness
 
       - name: Use Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v7
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-
-      - name: Build mcp-test-harness
-        working-directory: mcp-test-harness
-        run: npm install && npm run build
 
       - run: npm ci
       - run: npm run build
