@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.3.2](https://github.com/mharnett/mcp-ga4/compare/v2.3.1...v2.3.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* **auth:** wrap the OAuth2Client in GoogleAuth so gax can build gRPC stubs ([#25](https://github.com/mharnett/mcp-ga4/issues/25)) ([17127ce](https://github.com/mharnett/mcp-ga4/commit/17127cee54d649a07d0514da6c80c3ff107042d1))
+* check config.json property ids and the tools' property_id argument ([#30](https://github.com/mharnett/mcp-ga4/issues/30)) ([608de3a](https://github.com/mharnett/mcp-ga4/commit/608de3af47be79c1f041c39a2e15d44729b78697))
+* refuse a non-numeric GA4_PROPERTY_ID at startup ([#29](https://github.com/mharnett/mcp-ga4/issues/29)) ([f2933a7](https://github.com/mharnett/mcp-ga4/commit/f2933a7d3e5682d76c74e8038b8dc67d545af532))
+* send custom dimension creates once; test the gate at the CallTool dispatch ([#26](https://github.com/mharnett/mcp-ga4/issues/26)) ([08024e3](https://github.com/mharnett/mcp-ga4/commit/08024e3a3cddd852ba1c96b61dc24ea0d83399c6))
+
 ## [2.3.1](https://github.com/mharnett/mcp-ga4/compare/v2.3.0...v2.3.1) (2026-10-31)
 
 
