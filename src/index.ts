@@ -25,7 +25,7 @@ import { filterTools, assertWriteAllowed } from "./writeGate.js";
 import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
 import { resolveAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
-import { parsePropertyId } from "./propertyId.js";
+import { parsePropertyId, requirePropertyIdArg } from "./propertyId.js";
 import v8 from "v8";
 
 // CLI package info
@@ -140,7 +140,8 @@ function loadConfig(): Config {
         clients[key] = {
           name: cc.name,
           folder: cc.folder,
-          property_id: cc.property_id,
+          // Checked like GA4_PROPERTY_ID, naming the client and the file (see propertyId.ts).
+          property_id: parsePropertyId(cc.property_id, `property_id of client ${JSON.stringify(key)} in ${p}`),
           sandbox_measurement_id: cc.sandbox_measurement_id,
           production_measurement_id: cc.production_measurement_id,
         };
@@ -481,7 +482,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "ga4_run_report":
-        return ok(await ga4Manager.runReport(requireStringArg("property_id", args?.property_id), {
+        return ok(await ga4Manager.runReport(requirePropertyIdArg(args?.property_id), {
           dimensions: args?.dimensions as string,
           metrics: args?.metrics as string,
           startDate: args?.start_date as string,
@@ -492,17 +493,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }));
 
       case "ga4_realtime_report":
-        return ok(await ga4Manager.realtimeReport(requireStringArg("property_id", args?.property_id), {
+        return ok(await ga4Manager.realtimeReport(requirePropertyIdArg(args?.property_id), {
           dimensions: args?.dimensions as string,
           metrics: args?.metrics as string,
           dimensionFilter: args?.dimension_filter as string,
         }));
 
       case "ga4_list_custom_dimensions":
-        return ok(await ga4Manager.listCustomDimensions(requireStringArg("property_id", args?.property_id)));
+        return ok(await ga4Manager.listCustomDimensions(requirePropertyIdArg(args?.property_id)));
 
       case "ga4_create_custom_dimension":
-        return ok(await ga4Manager.createCustomDimension(requireStringArg("property_id", args?.property_id), {
+        return ok(await ga4Manager.createCustomDimension(requirePropertyIdArg(args?.property_id), {
           parameterName: requireStringArg("parameter_name", args?.parameter_name),
           displayName: requireStringArg("display_name", args?.display_name),
           scope: args?.scope as string,
@@ -510,10 +511,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         }));
 
       case "ga4_list_custom_metrics":
-        return ok(await ga4Manager.listCustomMetrics(requireStringArg("property_id", args?.property_id)));
+        return ok(await ga4Manager.listCustomMetrics(requirePropertyIdArg(args?.property_id)));
 
       case "ga4_list_data_streams":
-        return ok(await ga4Manager.listDataStreams(requireStringArg("property_id", args?.property_id)));
+        return ok(await ga4Manager.listDataStreams(requirePropertyIdArg(args?.property_id)));
 
       case "ga4_send_feedback": {
         const feedbackType = requireStringArg("feedback_type", args?.feedback_type);
