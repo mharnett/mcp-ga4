@@ -6,7 +6,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
-import { readFileSync, existsSync, appendFileSync, mkdirSync } from "fs";
+import { readFileSync, existsSync, appendFileSync, mkdirSync, realpathSync } from "fs";
 import { join, dirname, resolve, isAbsolute } from "path";
 import { fileURLToPath } from "url";
 import { homedir } from "os";
@@ -365,7 +365,7 @@ class Ga4Manager {
         parameter_name: (result as any).parameterName,
         scope: String((result as any).scope),
       };
-    }, "ga4_create_custom_dimension");
+    }, "ga4_create_custom_dimension", { idempotent: false });
   }
 
   async listCustomMetrics(propertyId: string): Promise<any> {
@@ -438,7 +438,10 @@ Metrics: sessions, totalUsers, newUsers, activeUsers, screenPageViews,
 ## Date Formats
 Use YYYY-MM-DD or relative: "today", "yesterday", "7daysAgo", "30daysAgo", "90daysAgo"`;
 
-const server = new Server(
+// Exported so tests can connect an in-memory transport and drive the real
+// tools/list and tools/call handlers registered below. main() is the only
+// production caller of server.connect().
+export const server = new Server(
   { name: __cliPkg.name, version: __cliPkg.version },
   { capabilities: { tools: {} } },
 );
@@ -630,4 +633,20 @@ process.on("unhandledRejection", (reason) => {
   console.error("[error] Unhandled promise rejection:", reason);
 });
 
-main().catch(console.error);
+// Only auto-start the server when this module is executed directly (as the
+// CLI entrypoint, including through the npx/bin symlink), not when a test
+// imports it. Comparing the resolved module path to process.argv[1] is the
+// ESM equivalent of the CommonJS `require.main === module` guard.
+function isMainModule(): boolean {
+  const entry = process.argv[1];
+  if (!entry) return false;
+  try {
+    return fileURLToPath(import.meta.url) === realpathSync(entry);
+  } catch {
+    return false;
+  }
+}
+
+if (isMainModule()) {
+  main().catch(console.error);
+}
