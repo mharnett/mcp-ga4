@@ -110,6 +110,11 @@ silent switch to the other credential family.)
 > **Precedence:** when **both** families are configured, the **keyfile /
 > service account takes precedence** over user OAuth.
 
+Once it is serving, the server makes one GA4 call in the background to check the
+credentials. If that fails, the reason goes to stderr and is added to the first
+tool result as a `startup_check` text block. Set `MCP_GA4_SKIP_STARTUP_CHECK=1`
+to skip the call.
+
 ### Option A: Service account (recommended for unattended / server use)
 
 Use this for any always-on or server deployment. Point

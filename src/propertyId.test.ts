@@ -21,15 +21,17 @@
  * it never fired.
  */
 
-import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-
 import { afterEach, describe, expect, it } from "vitest";
 
-import { FAKE_ENV, FAKE_PROPERTY_ID } from "../tests/helpers/fakeGoogleAnalytics.js";
+import { FAKE_PROPERTY_ID } from "../tests/helpers/fakeGoogleAnalytics.js";
+import {
+  INITIALIZE,
+  REPLY_TIMEOUT_MS,
+  startServer as spawnServer,
+  stopServers,
+  type Exit,
+  type RunningServer,
+} from "../tests/helpers/spawnServer.js";
 import { parsePropertyId } from "./propertyId.js";
 
 describe("parsePropertyId", () => {
@@ -66,126 +68,9 @@ describe("parsePropertyId", () => {
   });
 });
 
-const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const DIST_INDEX = path.join(REPO_ROOT, "dist", "index.js");
-const NO_NETWORK = pathToFileURL(path.join(REPO_ROOT, "tests", "helpers", "noNetwork.mjs")).href;
-const REPLY_TIMEOUT_MS = 15_000;
-
-interface Exit {
-  code: number | null;
-  signal: NodeJS.Signals | null;
-}
-
-interface RunningServer {
-  proc: ChildProcess;
-  stdout(): string;
-  stderr(): string;
-  closed: Promise<Exit>;
-  send(message: object): void;
-  reply(id: number): Promise<any>;
-  stop(): Promise<Exit>;
-}
-
-const running: RunningServer[] = [];
-
+/** noNetwork.mjs refuses any socket, DNS lookup or fetch; the startup check is off. */
 function startServer(propertyId: string): RunningServer {
-  if (!existsSync(DIST_INDEX)) {
-    throw new Error(`${DIST_INDEX} is missing: run \`npm test\`, which builds first`);
-  }
-  const home = mkdtempSync(path.join(tmpdir(), "mcp-ga4-startup-"));
-  const env: Record<string, string> = {};
-  // process.env lookups are case-insensitive on Windows, so these two cover it.
-  for (const key of ["PATH", "SystemRoot"]) {
-    if (process.env[key]) env[key] = process.env[key]!;
-  }
-  Object.assign(env, FAKE_ENV, {
-    GA4_PROPERTY_ID: propertyId,
-    HOME: home,
-    USERPROFILE: home,
-    LOG_LEVEL: "debug",
-    MCP_GA4_SKIP_STARTUP_CHECK: "1",
-    MCP_DISABLE_UPDATE_CHECK: "1",
-  });
-
-  const proc = spawn(process.execPath, ["--import", NO_NETWORK, DIST_INDEX], {
-    cwd: REPO_ROOT,
-    env,
-    stdio: ["pipe", "pipe", "pipe"],
-  });
-  // A write after the server has exited raises EPIPE here; the exit is what
-  // the test reports, so don't let the pipe error crash the run.
-  proc.stdin!.on("error", () => {});
-
-  let out = "";
-  let err = "";
-  let partial = "";
-  const replies = new Map<number, any>();
-  const waiters = new Map<number, (message: any) => void>();
-  proc.stdout!.setEncoding("utf8");
-  proc.stderr!.setEncoding("utf8");
-  proc.stdout!.on("data", (chunk: string) => {
-    out += chunk;
-    const lines = (partial + chunk).split("\n");
-    partial = lines.pop()!;
-    for (const line of lines) {
-      let message: any;
-      try {
-        message = JSON.parse(line);
-      } catch {
-        continue; // reported by the stdout check, not here
-      }
-      if (typeof message?.id === "number") {
-        replies.set(message.id, message);
-        waiters.get(message.id)?.(message);
-      }
-    }
-  });
-  proc.stderr!.on("data", (chunk: string) => {
-    err += chunk;
-  });
-
-  const closed = new Promise<Exit>((resolve) => {
-    proc.on("close", (code, signal) => resolve({ code, signal }));
-  });
-
-  const server: RunningServer = {
-    proc,
-    stdout: () => out,
-    stderr: () => err,
-    closed,
-    send(message) {
-      proc.stdin!.write(JSON.stringify(message) + "\n");
-    },
-    reply(id) {
-      if (replies.has(id)) return Promise.resolve(replies.get(id));
-      return new Promise((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`no reply to request ${id} within ${REPLY_TIMEOUT_MS}ms\nstderr:\n${err}`)),
-          REPLY_TIMEOUT_MS,
-        );
-        waiters.set(id, (message) => {
-          clearTimeout(timer);
-          resolve(message);
-        });
-        void closed.then(({ code, signal }) => {
-          clearTimeout(timer);
-          reject(new Error(`server exited (code ${code}, signal ${signal}) before replying to request ${id}\nstderr:\n${err}`));
-        });
-      });
-    },
-    async stop() {
-      if (proc.exitCode === null && proc.signalCode === null) {
-        proc.stdin!.end();
-        proc.kill("SIGTERM");
-        const timer = setTimeout(() => proc.kill("SIGKILL"), 5_000);
-        await closed;
-        clearTimeout(timer);
-      }
-      return closed;
-    },
-  };
-  running.push(server);
-  return server;
+  return spawnServer("noNetwork.mjs", { GA4_PROPERTY_ID: propertyId, MCP_GA4_SKIP_STARTUP_CHECK: "1" });
 }
 
 function exitWithin(server: RunningServer, ms: number): Promise<Exit> {
@@ -197,21 +82,8 @@ function exitWithin(server: RunningServer, ms: number): Promise<Exit> {
   ]);
 }
 
-const INITIALIZE = {
-  jsonrpc: "2.0",
-  id: 1,
-  method: "initialize",
-  params: {
-    protocolVersion: "2024-11-05",
-    capabilities: {},
-    clientInfo: { name: "startup-test", version: "0.0.0" },
-  },
-};
-
 describe("server startup with GA4_PROPERTY_ID (spawned over stdio)", () => {
-  afterEach(async () => {
-    await Promise.all(running.splice(0).map((server) => server.stop()));
-  });
+  afterEach(stopServers);
 
   it("starts, answers, drops a properties/ prefix, and writes only JSON-RPC replies to stdout", async () => {
     const server = startServer(`properties/${FAKE_PROPERTY_ID}`);
