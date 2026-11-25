@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
+  type CallToolRequest,
 } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync, existsSync, appendFileSync, mkdirSync, realpathSync } from "fs";
 import { join, dirname, resolve, isAbsolute } from "path";
@@ -26,6 +27,7 @@ import { withResilience, safeResponse, logger } from "./resilience.js";
 import { checkForUpdate } from "mcp-updatenotifier";
 import { resolveAuthMode, buildClientAuthOptions, type AuthMode } from "./oauthClient.js";
 import { parsePropertyId, requirePropertyIdArg } from "./propertyId.js";
+import { StartupCheck, requireReadableKeyFile } from "./startupCheck.js";
 import v8 from "v8";
 
 // CLI package info
@@ -192,6 +194,10 @@ class Ga4Manager {
     // configured -- no silent machine-local default, no runtime failover.
     this.authMode = resolveAuthMode(process.env, config.credentials_file);
     console.error(`[startup] Auth mode: ${this.authMode.mode}`);
+  }
+
+  requireReadableKeyFile(): void {
+    requireReadableKeyFile(this.authMode);
   }
 
   private getDataClient(): InstanceType<typeof BetaAnalyticsDataClient> {
@@ -450,9 +456,27 @@ export const server = new Server(
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: filterTools(tools) }));
 
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  const { name, arguments: args } = request.params;
+const startupCheck = new StartupCheck();
 
+/**
+ * Startup health check: list the first configured property's data streams.
+ * Never rejects. Exported for tests; main() is its only production caller.
+ */
+export function runStartupCheck(): Promise<void> {
+  return startupCheck.run(async () => {
+    const firstClient = Object.values(config.clients)[0];
+    if (!firstClient) return;
+    await ga4Manager.listDataStreams(firstClient.property_id);
+    console.error(`[startup] Auth verified: GA4 property ${firstClient.property_id} (${firstClient.name})`);
+  });
+}
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => startupCheck.annotate(await callTool(request.params)));
+
+async function callTool({ name, arguments: args }: CallToolRequest["params"]): Promise<{
+  content: { type: "text"; text: string }[];
+  isError?: boolean;
+}> {
   const ok = (data: any) => ({
     content: [{ type: "text" as const, text: JSON.stringify(safeResponse(data, name), null, 2) }],
   });
@@ -593,28 +617,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [{ type: "text", text: JSON.stringify(safeErrorResponse, null, 2) }],
     };
   }
-});
+}
 
 async function main() {
-  // Startup health check - try listing data streams for the first configured property.
-  // Set MCP_GA4_SKIP_STARTUP_CHECK=1 to bypass (used by input-validation tests that
-  // don't want gRPC retries delaying server start with fake creds).
-  if (!process.env.MCP_GA4_SKIP_STARTUP_CHECK) {
-    try {
-      const firstClient = Object.values(config.clients)[0];
-      if (firstClient) {
-        await ga4Manager.listDataStreams(firstClient.property_id);
-        console.error(`[startup] Auth verified: GA4 property ${firstClient.property_id} (${firstClient.name})`);
-      }
-    } catch (err: any) {
-      console.error(`[STARTUP WARNING] Auth check FAILED: ${err.message}`);
-      console.error(`[STARTUP WARNING] MCP will start but API calls may fail until auth is fixed.`);
-    }
-  }
+  // Set MCP_GA4_SKIP_STARTUP_CHECK=1 to bypass the startup check (tests with fake
+  // credentials use it, so they make no call).
+  const checkAtStartup = !process.env.MCP_GA4_SKIP_STARTUP_CHECK;
+  if (checkAtStartup) ga4Manager.requireReadableKeyFile();
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error("[startup] MCP GA4 server running");
+
+  // Not awaited: with Google unreachable the check takes the full request
+  // timeout, and `initialize` must not wait for it.
+  if (checkAtStartup) void runStartupCheck();
 }
 
 process.on("SIGTERM", () => {
@@ -650,5 +667,8 @@ function isMainModule(): boolean {
 }
 
 if (isMainModule()) {
-  main().catch(console.error);
+  main().catch((err) => {
+    console.error("[startup] FATAL:", err);
+    process.exitCode = 1;
+  });
 }

@@ -21,9 +21,8 @@ registerMcpTests({
   envPrefix: "GA4_",
   // Fakes only. The server needs a property id plus one credential set (the
   // user-OAuth trio or a service account), or it exits at loadConfig. Its
-  // startup auth check calls the GA4 Admin API before the transport connects;
-  // the jail refuses that call and the retries outlast the startup timeout,
-  // so the check is skipped.
+  // background auth check calls the GA4 Admin API; it is skipped here so the
+  // harness has no calls to refuse (startupCheck.spawn.test.ts covers it).
   startupEnv: {
     GA4_PROPERTY_ID: "123456789",
     GA4_CLIENT_ID: "fake-ga4-client-id",
