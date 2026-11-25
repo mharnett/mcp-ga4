@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.3.3](https://github.com/mharnett/mcp-ga4/compare/v2.3.2...v2.3.3) (2026-11-25)
+
+
+### Bug Fixes
+
+* answer initialize before the startup auth check ([#38](https://github.com/mharnett/mcp-ga4/issues/38)) ([5bd1518](https://github.com/mharnett/mcp-ga4/commit/5bd1518fc47e867e2a78c1dc4aad72bdc28bcec5))
+
 ## [2.3.2](https://github.com/mharnett/mcp-ga4/compare/v2.3.1...v2.3.2) (2026-11-22)
 
 

@@ -6,12 +6,12 @@
     "url": "https://github.com/mharnett/mcp-ga4",
     "source": "github"
   },
-  "version": "2.3.2",
+  "version": "2.3.3",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "mcp-ga4",
-      "version": "2.3.2",
+      "version": "2.3.3",
       "transport": {
         "type": "stdio"
       },
